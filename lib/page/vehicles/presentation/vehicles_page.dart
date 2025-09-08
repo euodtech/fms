@@ -22,15 +22,30 @@ class VehiclesPage extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(v.name, style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      v.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     Container(
                       decoration: BoxDecoration(
-                        color: v.status == 'Active' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                        color: v.status == 'Active'
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: Text(v.status, style: TextStyle(color: v.status == 'Active' ? Colors.green.shade700 : Colors.orange.shade700)),
-                    )
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      child: Text(
+                        v.status,
+                        style: TextStyle(
+                          color: v.status == 'Active'
+                              ? Colors.green.shade700
+                              : Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -43,14 +58,17 @@ class VehiclesPage extends StatelessWidget {
                     ElevatedButton.icon(
                       onPressed: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => VehicleTrackingPage(vehicleId: v.id)),
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                VehicleTrackingPage(vehicleId: v.id),
+                          ),
                         );
                       },
                       icon: const Icon(Icons.near_me_outlined),
                       label: const Text('TRACK'),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),

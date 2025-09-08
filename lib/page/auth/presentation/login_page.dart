@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:fms/nav_bar.dart';
 import 'package:fms/core/constants/variables.dart';
@@ -47,13 +49,14 @@ class _LoginPageState extends State<LoginPage> {
 
       final prefs = await SharedPreferences.getInstance();
       final apiKey = res.data?.apiKey;
-      final fullname = res.data?.fullname;
+      final userID = res.data?.userId;
       if (apiKey == null || apiKey.isEmpty) {
         throw Exception('ApiKey kosong');
       }
       await prefs.setString(Variables.prefApiKey, apiKey);
-      if (fullname != null && fullname.isNotEmpty) {
-        await prefs.setString(Variables.prefFullname, fullname);
+      log(userID.toString(), name: 'Login', level: 800);
+      if (userID != null && userID.toString().isNotEmpty) {
+        await prefs.setString(Variables.prefUserID, userID.toString());
       }
 
       if (!mounted) return;
@@ -63,9 +66,9 @@ class _LoginPageState extends State<LoginPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

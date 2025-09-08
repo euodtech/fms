@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:fms/data/models/job.dart';
+import '../../../../page/profile/presentation/profile_page.dart';
 
 class JobDetailsPage extends StatelessWidget {
-  final JobItem job;
+  final dynamic job;
   const JobDetailsPage({super.key, required this.job});
 
   @override
@@ -10,13 +10,49 @@ class JobDetailsPage extends StatelessWidget {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(job.title),
+        title: Text(job.jobName ?? 'Job Details'),
         actions: [
           IconButton(
             tooltip: 'More',
             icon: const Icon(Icons.more_vert),
-            onPressed: () {},
-          )
+            onPressed: () {
+              // Show more options
+              showModalBottomSheet(
+                context: context,
+                builder: (context) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.share),
+                      title: const Text('Share'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        // Implement share functionality
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.report),
+                      title: const Text('Report'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        // Implement report functionality
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Profile',
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
+            },
+          ),
         ],
       ),
       body: SafeArea(
@@ -48,19 +84,55 @@ class JobDetailsPage extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(job.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                              Text(job.jobName ?? 'Job', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 6),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  _Chip(label: 'ID: ${job.id}'),
+                                  _Chip(label: 'ID: ${job.jobId ?? 'N/A'}'),
                                   _Chip(label: 'Status: Open'),
+                                  if (job.jobDate != null) _Chip(label: 'Date: ${job.jobDate!.toString().split(' ')[0]}'),
                                 ],
                               ),
                             ],
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Customer Information
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.person, color: theme.colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text('Customer', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(job.customerName ?? 'N/A', style: theme.textTheme.bodyMedium),
+                        if (job.phoneNumber != null) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.phone, color: theme.colorScheme.primary),
+                              const SizedBox(width: 8),
+                              Text(job.phoneNumber!, style: theme.textTheme.bodyMedium),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -85,7 +157,7 @@ class JobDetailsPage extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(job.address, style: theme.textTheme.bodyMedium),
+                        Text(job.address ?? 'N/A', style: theme.textTheme.bodyMedium),
                         const SizedBox(height: 8),
                         TextButton.icon(
                           onPressed: () {
@@ -103,7 +175,7 @@ class JobDetailsPage extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
-                // Description / Details
+                // Job Information
                 Card(
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -114,16 +186,16 @@ class JobDetailsPage extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.description_outlined, color: theme.colorScheme.primary),
+                            Icon(Icons.info_outline, color: theme.colorScheme.primary),
                             const SizedBox(width: 8),
-                            Text('Details', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                            Text('Job Information', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          job.detail,
-                          style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-                        ),
+                        _InfoRow(label: 'Job Type', value: _getJobTypeString(job.typeJob)),
+                        _InfoRow(label: 'Created By', value: job.createdBy?.toString() ?? 'N/A'),
+                        if (job.createdAt != null)
+                          _InfoRow(label: 'Created At', value: job.createdAt!.toString().split(' ')[0]),
                       ],
                     ),
                   ),
@@ -172,6 +244,19 @@ class JobDetailsPage extends StatelessWidget {
       ),
     );
   }
+
+  String _getJobTypeString(int? type) {
+    switch (type) {
+      case 1:
+        return 'Line Interruption';
+      case 2:
+        return 'Reconnection';
+      case 3:
+        return 'Short Circuit';
+      default:
+        return 'Other';
+    }
+  }
 }
 
 class _Chip extends StatelessWidget {
@@ -190,6 +275,28 @@ class _Chip extends StatelessWidget {
       child: Text(
         label,
         style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }

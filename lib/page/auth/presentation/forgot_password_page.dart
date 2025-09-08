@@ -94,7 +94,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Lupa Password',
+                  'Forgot Password',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.onSurface,
@@ -102,7 +102,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Masukkan email anda untuk mengirim link reset password',
+                  'Enter your email to send reset password link',
                   style: theme.textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -115,7 +115,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           // Email Field
           AuthTextField(
             label: 'Email',
-            hint: 'Masukkan email anda',
+            hint: 'Enter your email',
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             prefixIcon: Icon(
@@ -139,7 +139,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
           // Reset Password Button
           AuthButton(
-            text: 'Kirim Link Reset Password',
+            text: 'Send Reset Password Link',
             onPressed: _handleResetPassword,
             isOutlined: true,
             isLoading: _isLoading,
@@ -151,7 +151,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Ingat password anda?', style: theme.textTheme.bodyMedium),
+              Text('Remember your password?', style: theme.textTheme.bodyMedium),
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
@@ -192,7 +192,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 32),
         Text(
-          'Email Terkirim!',
+          'Email Sent!',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.onSurface,
@@ -202,14 +202,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'Link reset password telah dikirim ke email ${_emailController.text}. Silahkan cek inbox atau folder spam anda.',
+            'Link reset password has been sent to email ${_emailController.text}. Please check your inbox or spam folder.',
             style: theme.textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
         ),
         const SizedBox(height: 40),
         AuthButton(
-          text: 'Kembali ke Login',
+          text: 'Back to Login',
           onPressed: () {
             Navigator.of(context).pop();
           },
