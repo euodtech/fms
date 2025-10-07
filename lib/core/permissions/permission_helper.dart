@@ -11,7 +11,7 @@ class AppPermission {
       if (status.isPermanentlyDenied) {
         final goToSettings = await _showSettingsDialog(
           context,
-          'Aplikasi memerlukan akses Foto untuk mengunggah bukti pekerjaan. Buka Pengaturan untuk memberikan izin.',
+          'Application requires access to Storage/Photo to upload proof of work. Open Settings to grant permission.',
         );
         if (goToSettings) {
           await openAppSettings();
@@ -19,13 +19,22 @@ class AppPermission {
       }
       return false;
     } else {
-      // Android: use storage permission (the plugin maps correctly depending on SDK), and we also declare READ_MEDIA_IMAGES in manifest for Android 13+
-      final status = await Permission.storage.request();
-      if (status.isGranted) return true;
-      if (status.isPermanentlyDenied) {
+      // Android 13+: request dedicated photos permission. Older versions still rely on storage permission.
+      final photosStatus = await Permission.photos.request();
+      if (photosStatus.isGranted || photosStatus.isLimited) {
+        return true;
+      }
+
+      final storageStatus = await Permission.storage.request();
+      if (storageStatus.isGranted) {
+        return true;
+      }
+
+      if (photosStatus.isPermanentlyDenied ||
+          storageStatus.isPermanentlyDenied) {
         final goToSettings = await _showSettingsDialog(
           context,
-          'Aplikasi memerlukan akses Penyimpanan/Foto untuk mengunggah bukti pekerjaan. Buka Pengaturan untuk memberikan izin.',
+          'Application requires access to Storage/Photo to upload proof of work. Open Settings to grant permission.',
         );
         if (goToSettings) {
           await openAppSettings();
@@ -35,20 +44,23 @@ class AppPermission {
     }
   }
 
-  static Future<bool> _showSettingsDialog(BuildContext context, String message) async {
+  static Future<bool> _showSettingsDialog(
+    BuildContext context,
+    String message,
+  ) async {
     return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Izin Diperlukan'),
+            title: const Text('Permission Required'),
             content: Text(message),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Batal'),
+                child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Buka Pengaturan'),
+                child: const Text('Open Settings'),
               ),
             ],
           ),

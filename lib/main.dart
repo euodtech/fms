@@ -4,6 +4,7 @@ import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:fms/core/constants/variables.dart';
 import 'package:fms/nav_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/services/navigation_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,6 +19,7 @@ class MyApp extends StatelessWidget {
       title: 'E-FMS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      navigatorKey: NavigationService.navigatorKey,
       home: const RootGate(),
     );
   }

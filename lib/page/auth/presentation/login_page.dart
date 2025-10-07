@@ -51,7 +51,7 @@ class _LoginPageState extends State<LoginPage> {
       final apiKey = res.data?.apiKey;
       final userID = res.data?.userId;
       if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('ApiKey kosong');
+        throw Exception('Error fetch data');
       }
       await prefs.setString(Variables.prefApiKey, apiKey);
       log(userID.toString(), name: 'Login', level: 800);
@@ -68,7 +68,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      ).showSnackBar(SnackBar(content: Text('Login Failed')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

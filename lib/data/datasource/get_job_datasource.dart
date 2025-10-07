@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/variables.dart';
+import '../../core/services/session_service.dart';
 import '../models/response/get_job_response_model.dart';
 
 class GetJobDatasource {
@@ -19,7 +20,14 @@ class GetJobDatasource {
       Variables.getJobEndpoint,
     ).replace(queryParameters: {'x-key': apiKey});
     final response = await http.get(uri);
-    log(response.statusCode.toString(), name: 'GetAllJobDatasource', level: 800);
+    if (await SessionService.handleUnauthorizedResponse(prefs, response)) {
+      throw Exception('Unauthorized');
+    }
+    log(
+      response.statusCode.toString(),
+      name: 'GetAllJobDatasource',
+      level: 800,
+    );
     if (response.statusCode == 200) {
       // log(response.statusCode.toString(), name: 'GetJobDatasource', level: 800);
       return GetJobResponseModel.fromJson(response.body);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:fms/data/datasource/get_job_datasource.dart';
 import 'package:fms/data/datasource/get_job_history_datasource.dart';
 import 'package:fms/data/models/response/get_job_response_model.dart';
@@ -215,7 +216,7 @@ class _JobsPageState extends State<JobsPage>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            job.jobDate!.toString().split(' ')[0],
+                            _formatDate(job.jobDate),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: Theme.of(
@@ -374,7 +375,7 @@ class _JobsPageState extends State<JobsPage>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            job.jobDate!.toString().split(' ')[0],
+                            _formatDate(job.jobDate),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: Theme.of(
@@ -529,7 +530,7 @@ class _JobsPageState extends State<JobsPage>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            job.jobDate!.toString().split(' ')[0],
+                            _formatDate(job.jobDate),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: Theme.of(
@@ -645,5 +646,23 @@ class _JobsPageState extends State<JobsPage>
         ),
       ),
     );
+  }
+
+  String _formatDate(dynamic value) {
+    final dateTime = _parseDate(value);
+    if (dateTime == null) return 'N/A';
+    return DateFormat('EEE, dd MMM yyyy').format(dateTime);
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    return null;
   }
 }

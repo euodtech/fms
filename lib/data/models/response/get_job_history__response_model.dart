@@ -31,13 +31,15 @@ class Data {
   final int? userId;
   final int? customerId;
   final int? typeJob;
-  final int? createdBy;
+  final String? createdBy;
   final DateTime? jobDate;
   final DateTime? createdAt;
   final dynamic assignWhen;
   final String? customerName;
   final String? phoneNumber;
   final String? address;
+  final double? latitude;
+  final double? longitude;
 
   Data({
     this.jobId,
@@ -52,6 +54,8 @@ class Data {
     this.customerName,
     this.phoneNumber,
     this.address,
+    this.latitude,
+    this.longitude,
   });
 
   factory Data.fromJson(String str) => Data.fromMap(json.decode(str));
@@ -64,7 +68,7 @@ class Data {
     userId: json["UserID"],
     customerId: json["CustomerID"],
     typeJob: json["TypeJob"],
-    createdBy: json["CreatedBy"],
+    createdBy: json["CreatedBy"]?.toString(),
     jobDate: json["JobDate"] == null ? null : DateTime.parse(json["JobDate"]),
     createdAt: json["created_at"] == null
         ? null
@@ -73,6 +77,8 @@ class Data {
     customerName: json["CustomerName"],
     phoneNumber: json["PhoneNumber"],
     address: json["Address"],
+    latitude: _parseDouble(json["Latitude"]),
+    longitude: _parseDouble(json["Longitude"]),
   );
 
   Map<String, dynamic> toMap() => {
@@ -82,12 +88,24 @@ class Data {
     "CustomerID": customerId,
     "TypeJob": typeJob,
     "CreatedBy": createdBy,
-    "JobDate":
-        "${jobDate!.year.toString().padLeft(4, '0')}-${jobDate!.month.toString().padLeft(2, '0')}-${jobDate!.day.toString().padLeft(2, '0')}",
+    "JobDate": jobDate == null
+        ? null
+        : "${jobDate!.year.toString().padLeft(4, '0')}-${jobDate!.month.toString().padLeft(2, '0')}-${jobDate!.day.toString().padLeft(2, '0')}",
     "created_at": createdAt?.toIso8601String(),
     "AssignWhen": assignWhen,
     "CustomerName": customerName,
     "PhoneNumber": phoneNumber,
     "Address": address,
+    "Latitude": latitude,
+    "Longitude": longitude,
   };
+}
+
+double? _parseDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String && value.isNotEmpty) {
+    return double.tryParse(value);
+  }
+  return null;
 }

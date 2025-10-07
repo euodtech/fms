@@ -25,6 +25,13 @@ class GetJobResponseModel {
   };
 }
 
+double? _parseDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
 class Data {
   final int? jobId;
   final String? jobName;
@@ -38,6 +45,8 @@ class Data {
   final String? customerName;
   final String? phoneNumber;
   final String? address;
+  final double? latitude;
+  final double? longitude;
   final String? typeJobName;
 
   Data({
@@ -53,6 +62,8 @@ class Data {
     this.customerName,
     this.phoneNumber,
     this.address,
+    this.latitude,
+    this.longitude,
     this.typeJobName,
   });
 
@@ -75,6 +86,8 @@ class Data {
     customerName: json["CustomerName"],
     phoneNumber: json["PhoneNumber"],
     address: json["Address"],
+    latitude: _parseDouble(json["Latitude"]),
+    longitude: _parseDouble(json["Longitude"]),
     typeJobName: json["TypeJobName"],
   );
 
@@ -92,6 +105,8 @@ class Data {
     "CustomerName": customerName,
     "PhoneNumber": phoneNumber,
     "Address": address,
+    "Latitude": latitude,
+    "Longitude": longitude,
     "TypeJobName": typeJobName,
   };
 }

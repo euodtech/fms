@@ -20,7 +20,36 @@ class Variables {
   static const String driverGetJob = '$baseUrl/driver-get-job?';
   static const String finishedJobEndpoint = '$baseUrl/finished-job';
 
+  // Traxroot endpoints
+  static const String traxrootBaseUrl = 'https://connect.traxroot.com/api';
+  static const String traxrootTokenEndpoint = '$traxrootBaseUrl/Token';
+  static const String traxrootObjectsStatusEndpoint =
+      '$traxrootBaseUrl/ObjectsStatus';
+  static String getTraxrootObjectStatusEndpoint(int objectId) =>
+      '$traxrootBaseUrl/ObjectsStatus/$objectId';
+  static const String traxrootObjectIconsEndpoint =
+      '$traxrootBaseUrl/Objects/Icons';
+  static const String traxrootUsername = 'euodoo';
+  static const String traxrootPassword = 'euodoo360';
+  static const int traxrootSubUserId = 0;
+  static const String traxrootLanguage = 'en';
+  static const String traxrootIconBaseUrl = 'https://connect.traxroot.com';
+  static const String traxrootInternalBaseUrl =
+      'http://quetraverse.pro/efms/internal/v1/api/traxroot';
+  static const String traxrootInternalDriversEndpoint =
+      '$traxrootInternalBaseUrl/getDrivers';
+  static String traxrootInternalDriverByIdEndpoint(int driverId) =>
+      '$traxrootInternalBaseUrl/getDriverById/$driverId';
+  static const String traxrootInternalGeozonesEndpoint =
+      '$traxrootInternalBaseUrl/geozones';
+  static String traxrootInternalGeozoneByIdEndpoint(int geozoneId) =>
+      '$traxrootInternalBaseUrl/geozones/$geozoneId';
+  static const String traxrootInternalGeozoneIconsEndpoint =
+      '$traxrootInternalBaseUrl/geozones/icons';
+
   // Shared Preferences keys
   static const String prefApiKey = 'apiKey';
   static const String prefUserID = 'UserID';
+  static const String prefTraxrootToken = 'TraxrootAccessToken';
+  static const String prefTraxrootTokenExpiry = 'TraxrootAccessTokenExpiry';
 }

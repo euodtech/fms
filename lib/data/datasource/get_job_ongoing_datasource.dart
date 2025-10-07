@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/variables.dart';
+import '../../core/services/session_service.dart';
 import '../models/response/get_job_response_model.dart';
 
 class GetJobOngoingDatasource {
@@ -24,6 +25,9 @@ class GetJobOngoingDatasource {
     final uri = Uri.parse(endpoint).replace(queryParameters: {'x-key': apiKey});
 
     final response = await http.get(uri);
+    if (await SessionService.handleUnauthorizedResponse(prefs, response)) {
+      throw Exception('Unauthorized');
+    }
     log(
       response.statusCode.toString(),
       name: 'GetJobOngoingDatasource',

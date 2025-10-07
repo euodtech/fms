@@ -1,15 +1,24 @@
 import 'dart:convert';
+import 'dart:developer';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/permissions/permission_helper.dart';
 import '../../../data/datasource/finish_job_datasource.dart';
+import '../../../data/datasource/traxroot_datasource.dart';
+import '../../../core/models/geo.dart';
 import '../../profile/presentation/profile_page.dart';
 import '../widget/chip_job_detail.dart';
 
 import 'package:fms/data/datasource/driver_get_job_datasource.dart';
 import 'package:fms/data/models/response/driver_get_job_response_model.dart';
+
+import 'job_navigation_page.dart';
 
 class JobDetailsPage extends StatefulWidget {
   final dynamic job;
@@ -24,12 +33,31 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
   @override
   void initState() {
     super.initState();
-    // Auto-prompt upload when opening an ongoing job (only once)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.isOngoing) {
-        _finishJob(context);
-      }
-    });
+  }
+
+  void _shareJobDetails() {
+    final job = widget.job;
+    final buffer = StringBuffer()
+      ..writeln('Job: ${job.jobName ?? 'N/A'}')
+      ..writeln('Status: ${widget.isOngoing ? 'Ongoing' : 'Open'}')
+      ..writeln('Job Type: ${_getJobTypeString(job.typeJob)}');
+
+    if (job.jobDate != null) {
+      buffer.writeln('Date: ${_formatDate(job.jobDate)}');
+    }
+
+    if (job.customerName != null) {
+      buffer.writeln('Customer: ${job.customerName}');
+    }
+
+    if (job.address != null) {
+      buffer.writeln('Address: ${job.address}');
+    }
+
+    Share.share(
+      buffer.toString().trim(),
+      subject: job.jobName ?? 'Job Details',
+    );
   }
 
   @override
@@ -56,7 +84,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                       title: const Text('Share'),
                       onTap: () {
                         Navigator.pop(context);
-                        // Implement share functionality
+                        _shareJobDetails();
                       },
                     ),
                     ListTile(
@@ -130,9 +158,6 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                 runSpacing: 8,
                                 children: [
                                   ChipJobDetail(
-                                    label: 'ID: ${job.jobId ?? 'N/A'}',
-                                  ),
-                                  ChipJobDetail(
                                     color: isOngoing
                                         ? Colors.orange
                                         : Colors.grey,
@@ -143,7 +168,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                   if (job.jobDate != null)
                                     ChipJobDetail(
                                       label:
-                                          'Date: ${job.jobDate!.toString().split(' ')[0]}',
+                                          'Date: ${_formatDate(job.jobDate)}',
                                     ),
                                 ],
                               ),
@@ -241,15 +266,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                         ),
                         const SizedBox(height: 8),
                         TextButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Open map action not implemented',
-                                ),
-                              ),
-                            );
-                          },
+                          onPressed: () => _navigateToJob(context),
                           icon: const Icon(Icons.map_outlined),
                           label: const Text('Open in Map'),
                         ),
@@ -298,7 +315,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                         if (job.createdAt != null)
                           _InfoRow(
                             label: 'Created At',
-                            value: job.createdAt!.toString().split(' ')[0],
+                            value: _formatDate(job.createdAt),
                           ),
                       ],
                     ),
@@ -319,13 +336,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Navigate action not implemented'),
-                      ),
-                    );
-                  },
+                  onPressed: () => _navigateToJob(context),
                   icon: const Icon(Icons.navigation_outlined),
                   label: const Text('Navigate'),
                   style: OutlinedButton.styleFrom(
@@ -366,12 +377,36 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     }
   }
 
+  String _formatDate(dynamic value) {
+    final dateTime = _parseDate(value);
+    if (dateTime == null) return 'N/A';
+    return DateFormat('EEE, dd MMM yyyy').format(dateTime);
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    return null;
+  }
+
   Future<void> _startJob(BuildContext context) async {
     final jobId = widget.job.jobId as int?;
     if (jobId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Job ID tidak ditemukan')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Job ID not found',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -400,9 +435,16 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       }
     } catch (e) {
       if (context.mounted) {
+        log('Failed to start job: ${e.toString()}');
         Navigator.of(context).pop(); // close loading
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memulai job: ${e.toString()}')),
+          SnackBar(
+            content: Text(
+              'Failed to start job',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -413,23 +455,33 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     if (jobId == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Job ID tidak ditemukan')));
+      ).showSnackBar(const SnackBar(content: Text('Job ID not found')));
       return;
     }
 
     final granted = await AppPermission.ensurePhotosPermission(context);
-    if (!granted) return;
+    if (!granted || !mounted) return;
+
+    final source = await _showImageSourceSheet(context);
+    if (!mounted || source == null) {
+      return;
+    }
 
     final picker = ImagePicker();
-    final images = await picker.pickMultiImage(
-      imageQuality: 85,
-      maxWidth: 1600,
-    );
+    final images = await _pickImages(context, picker, source);
 
     if (images.isEmpty || images.length < 2) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Minimal pilih 2 foto')));
+      ).showSnackBar(const SnackBar(content: Text('Select minimum 2 photos')));
+      return;
+    }
+
+    final approved = await _showImagePreview(context, images);
+    if (!approved) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Upload canceled')));
       return;
     }
 
@@ -456,19 +508,377 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response.message ?? 'Berhasil menyelesaikan job'),
+            content: Text(
+              response.message ?? 'Success Finish The Job',
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.green,
           ),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (context.mounted) {
+        log(e.toString());
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menyelesaikan job: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to finish job')));
       }
     }
+  }
+
+  Future<ImageSource?> _showImageSourceSheet(BuildContext context) async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Camera'),
+                onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(ImageSource.gallery),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<List<XFile>> _pickImages(
+    BuildContext context,
+    ImagePicker picker,
+    ImageSource source,
+  ) async {
+    if (source == ImageSource.gallery) {
+      return await picker.pickMultiImage(imageQuality: 85, maxWidth: 1600);
+    }
+
+    final capturedImages = <XFile>[];
+
+    while (capturedImages.length < 2) {
+      final image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+
+      if (image == null) {
+        break;
+      }
+
+      capturedImages.add(image);
+    }
+
+    while (capturedImages.isNotEmpty) {
+      final addMore = await _askCaptureMore(context);
+      if (!addMore) {
+        break;
+      }
+
+      final image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+
+      if (image == null) {
+        break;
+      }
+
+      capturedImages.add(image);
+    }
+
+    return capturedImages;
+  }
+
+  Future<bool> _askCaptureMore(BuildContext context) async {
+    if (!mounted) return false;
+
+    final result =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Add More'),
+            content: const Text('Do you want to take more photos?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Done'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    return result;
+  }
+
+  Future<bool> _showImagePreview(
+    BuildContext context,
+    List<XFile> images,
+  ) async {
+    if (images.isEmpty) return false;
+
+    return (await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Preview Images'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: images
+                      .map(
+                        (image) => ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(
+                            File(image.path),
+                            width: 120,
+                            height: 120,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Take Again'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Upload'),
+              ),
+            ],
+          ),
+        )) ??
+        false;
+  }
+
+  Future<void> _navigateToJob(BuildContext context) async {
+    final coordinates = _extractJobCoordinates(widget.job);
+
+    if (coordinates != null) {
+      if (widget.isOngoing) {
+        final launched = await _launchExternalNavigation(context, coordinates);
+        if (!launched && mounted) {
+          await _openInternalMap(context, coordinates);
+        }
+      } else {
+        await _openInternalMap(context, coordinates);
+      }
+      return;
+    }
+
+    await _fallbackNavigateUsingDatasource(context);
+  }
+
+  Future<void> _fallbackNavigateUsingDatasource(BuildContext context) async {
+    final objectId = _extractJobId();
+    if (objectId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Job ID not found')));
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final datasource = TraxrootObjectsDatasource(TraxrootAuthDatasource());
+      final status = await datasource.getObjectStatus(objectId: objectId);
+      final entry = _extractCoordinateEntry(status);
+
+      if (entry == null) {
+        throw Exception('Destination coordinate not found');
+      }
+
+      final coordinate = _parseCoordinateEntry(entry);
+
+      if (coordinate == null) {
+        throw Exception('Invalid coordinate format');
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (widget.isOngoing) {
+        final launched = await _launchExternalNavigation(context, coordinate);
+        if (!launched && mounted) {
+          await _openInternalMap(context, coordinate);
+        }
+      } else {
+        await _openInternalMap(context, coordinate);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      log('Failed to open navigation: ${e.toString()}');
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to open navigation',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openInternalMap(
+    BuildContext context,
+    GeoPoint coordinate,
+  ) async {
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JobNavigationPage(
+          latitude: coordinate.lat,
+          longitude: coordinate.lng,
+          jobName: widget.job.jobName ?? 'Job Destination',
+          address: widget.job.address,
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _launchExternalNavigation(
+    BuildContext context,
+    GeoPoint coordinate,
+  ) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=${coordinate.lat},${coordinate.lng}',
+    );
+
+    final canLaunchUri = await canLaunchUrl(uri);
+    if (!canLaunchUri) {
+      return false;
+    }
+
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tidak dapat membuka Google Maps: ${e.toString()}'),
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  GeoPoint? _extractJobCoordinates(dynamic job) {
+    final latitude = _parseCoordinate(job?.latitude ?? job?.lat);
+    final longitude = _parseCoordinate(job?.longitude ?? job?.lng ?? job?.lon);
+    if (latitude == null || longitude == null) {
+      return null;
+    }
+    return GeoPoint(latitude, longitude);
+  }
+
+  int? _extractJobId() {
+    final id = widget.job.jobId;
+    if (id is int) return id;
+    if (id is String) return int.tryParse(id);
+    return null;
+  }
+
+  GeoPoint? _parseCoordinateEntry(Map<String, dynamic> entry) {
+    final latitude = _parseCoordinate(
+      entry['Latitude'] ?? entry['latitude'] ?? entry['Lat'] ?? entry['lat'],
+    );
+    final longitude = _parseCoordinate(
+      entry['Longitude'] ??
+          entry['longitude'] ??
+          entry['Lon'] ??
+          entry['lon'] ??
+          entry['Lng'] ??
+          entry['lng'],
+    );
+    if (latitude == null || longitude == null) {
+      return null;
+    }
+    return GeoPoint(latitude, longitude);
+  }
+
+  Map<String, dynamic>? _extractCoordinateEntry(dynamic payload) {
+    if (payload is Map<String, dynamic>) {
+      if (_hasCoordinateKeys(payload)) {
+        return payload;
+      }
+
+      final data = payload['Data'] ?? payload['data'];
+      if (data is List) {
+        for (final item in data) {
+          final extracted = _extractCoordinateEntry(item);
+          if (extracted != null) {
+            return extracted;
+          }
+        }
+      }
+
+      final result = payload['Result'] ?? payload['result'];
+      if (result is List) {
+        for (final item in result) {
+          final extracted = _extractCoordinateEntry(item);
+          if (extracted != null) {
+            return extracted;
+          }
+        }
+      }
+    } else if (payload is List) {
+      for (final item in payload) {
+        final extracted = _extractCoordinateEntry(item);
+        if (extracted != null) {
+          return extracted;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  bool _hasCoordinateKeys(Map<String, dynamic> payload) {
+    final lowerKeys = payload.keys.map((k) => k.toLowerCase()).toSet();
+    return lowerKeys.contains('latitude') || lowerKeys.contains('lat');
+  }
+
+  double? _parseCoordinate(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
+    }
+    return null;
   }
 }
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
 
 import '../widget/chip_job_detail.dart';
+import 'job_navigation_page.dart';
 
 class JobHistoryDetailPage extends StatelessWidget {
   final Data job;
@@ -10,6 +12,8 @@ class JobHistoryDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final latitude = job.latitude;
+    final longitude = job.longitude;
     return Scaffold(
       appBar: AppBar(
         title: Text(job.jobName ?? 'Job History Details'),
@@ -66,7 +70,6 @@ class JobHistoryDetailPage extends StatelessWidget {
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  ChipJobDetail(label: 'ID: ${job.jobId ?? 'N/A'}'),
                                   ChipJobDetail(
                                     label: 'Status: Completed',
                                     color: Colors.green,
@@ -74,7 +77,7 @@ class JobHistoryDetailPage extends StatelessWidget {
                                   if (job.jobDate != null)
                                     ChipJobDetail(
                                       label:
-                                          'Date: ${job.jobDate!.toString().split(' ')[0]}',
+                                          'Date: ${_formatDate(job.jobDate)}',
                                     ),
                                 ],
                               ),
@@ -172,15 +175,27 @@ class JobHistoryDetailPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         TextButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Open map action not implemented',
-                                ),
-                              ),
-                            );
-                          },
+                          onPressed: latitude != null && longitude != null
+                              ? () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => JobNavigationPage(
+                                        latitude: latitude,
+                                        longitude: longitude,
+                                        jobName: job.jobName ?? 'Job Destination',
+                                        address: job.address,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              : () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Coordinates not available'),
+                                    ),
+                                  );
+                                },
                           icon: const Icon(Icons.map_outlined),
                           label: const Text('Open in Map'),
                         ),
@@ -229,12 +244,12 @@ class JobHistoryDetailPage extends StatelessWidget {
                         if (job.createdAt != null)
                           _InfoRow(
                             label: 'Created At',
-                            value: job.createdAt!.toString().split(' ')[0],
+                            value: _formatDate(job.createdAt),
                           ),
                         if (job.assignWhen != null)
                           _InfoRow(
                             label: 'Assigned At',
-                            value: job.assignWhen.toString(),
+                            value: _formatDate(job.assignWhen),
                           ),
                       ],
                     ),
@@ -342,6 +357,24 @@ class JobHistoryDetailPage extends StatelessWidget {
       default:
         return 'Other';
     }
+  }
+
+  String _formatDate(dynamic value) {
+    final dateTime = _parseDate(value);
+    if (dateTime == null) return 'N/A';
+    return DateFormat('EEE, dd MMM yyyy').format(dateTime);
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    return null;
   }
 }
 

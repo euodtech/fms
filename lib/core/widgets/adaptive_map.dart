@@ -8,15 +8,36 @@ class AdaptiveMap extends StatelessWidget {
   final GeoPoint center;
   final double zoom;
   final List<MapMarkerModel> markers;
-  const AdaptiveMap({super.key, required this.center, this.zoom = 14, this.markers = const []});
+  final List<MapZoneModel> zones;
+  final void Function(MapMarkerModel marker)? onMarkerTap;
+  const AdaptiveMap({
+    super.key,
+    required this.center,
+    this.zoom = 14,
+    this.markers = const [],
+    this.zones = const [],
+    this.onMarkerTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final hasKey = AppConfig.hasGoogleMapsKey;
     if (hasKey) {
-      return GoogleMapWidget(center: center, zoom: zoom, markers: markers);
+      return GoogleMapWidget(
+        center: center,
+        zoom: zoom,
+        markers: markers,
+        zones: zones,
+        onMarkerTap: onMarkerTap,
+      );
     } else {
-      return FlutterMapWidget(center: center, zoom: zoom, markers: markers);
+      return FlutterMapWidget(
+        center: center,
+        zoom: zoom,
+        markers: markers,
+        zones: zones,
+        onMarkerTap: onMarkerTap,
+      );
     }
   }
 }

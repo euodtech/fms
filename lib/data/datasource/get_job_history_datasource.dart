@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/variables.dart';
+import '../../core/services/session_service.dart';
 import '../models/response/get_job_history__response_model.dart';
 
 class GetJobHistoryDatasource {
@@ -23,16 +24,16 @@ class GetJobHistoryDatasource {
     final endpoint = Variables.getJobHistoryEndpoint(userId);
     final uri = Uri.parse(endpoint).replace(queryParameters: {'x-key': apiKey});
     final response = await http.get(uri);
+    if (await SessionService.handleUnauthorizedResponse(prefs, response)) {
+      throw Exception('Unauthorized');
+    }
     log(
       response.statusCode.toString(),
       name: 'GetJobFinishedHistoryDatasource',
       level: 800,
     );
-    log(
-      response.body,
-      name: 'GetJobFinishedHistoryDatasource',
-      level: 800,
-    );
+    log(response.body, name: 'GetJobFinishedHistoryDatasource', level: 800);
+
     if (response.statusCode == 200) {
       return GetJobHistoryResponseModel.fromJson(response.body);
     } else {
