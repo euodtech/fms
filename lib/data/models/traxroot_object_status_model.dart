@@ -144,14 +144,9 @@ class TraxrootObjectStatusModel {
     }
 
     return TraxrootObjectStatusModel(
+      // Only treat actual object id fields as id to avoid mismatching with tracker id
       id: _parseInt(
-        map['Id'] ??
-            map['id'] ??
-            map['ObjectId'] ??
-            map['objectId'] ??
-            map['trackerid'] ??
-            map['TrackerId'] ??
-            map['trackerId'],
+        map['Id'] ?? map['id'] ?? map['ObjectId'] ?? map['objectId'],
       ),
       name: _parseString(map['Name'] ?? map['name'] ?? map['ObjectName'] ?? map['objectName']),
       trackerId: _parseString(map['trackerid'] ?? map['TrackerId'] ?? map['trackerId']),

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../core/widgets/adaptive_map.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
@@ -19,12 +21,20 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
   TraxrootObjectStatusModel? _vehicle;
   bool _loading = false;
   String? _error;
+  bool _autoRefresh = false;
+  Timer? _autoTimer;
 
   @override
   void initState() {
     super.initState();
     _vehicle = widget.vehicle;
     _refreshLatestStatus();
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _refreshLatestStatus() async {
@@ -68,6 +78,14 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
       appBar: AppBar(
         title: Text(vehicle?.name ?? 'Vehicle Tracking'),
         actions: [
+          IconButton(
+            tooltip: _autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF',
+            onPressed: _toggleAutoRefresh,
+            icon: Icon(
+              Icons.autorenew,
+              color: _autoRefresh ? Theme.of(context).colorScheme.primary : null,
+            ),
+          ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loading ? null : _refreshLatestStatus,
@@ -150,6 +168,32 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
       ),
     );
   }
+
+  void _toggleAutoRefresh() {
+    setState(() {
+      _autoRefresh = !_autoRefresh;
+    });
+    if (_autoRefresh) {
+      _startAutoRefresh();
+    } else {
+      _stopAutoRefresh();
+    }
+  }
+
+  void _startAutoRefresh() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!mounted) return;
+      if (!_loading) {
+        _refreshLatestStatus();
+      }
+    });
+  }
+
+  void _stopAutoRefresh() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+  }
 }
 
 class _VehicleAvatar extends StatelessWidget {
@@ -159,17 +203,32 @@ class _VehicleAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (iconUrl == null || iconUrl!.isEmpty) {
-      return const CircleAvatar(child: Icon(Icons.directions_car));
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: Image.network(
-        iconUrl!,
-        width: 30,
-        height: 30,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const CircleAvatar(child: Icon(Icons.directions_car)),
+    final theme = Theme.of(context);
+    final radius = BorderRadius.circular(8);
+    final borderColor = theme.colorScheme.outline.withValues(alpha: 0.2);
+
+    Widget fallbackIcon() => const Icon(Icons.directions_car, size: 18);
+
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: radius,
+        border: Border.all(color: borderColor),
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: (iconUrl == null || iconUrl!.isEmpty)
+            ? Center(child: fallbackIcon())
+            : CachedNetworkImage(
+                imageUrl: iconUrl!,
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
+                placeholder: (_, __) => Center(child: fallbackIcon()),
+                errorWidget: (_, __, ___) => Center(child: fallbackIcon()),
+              ),
       ),
     );
   }

@@ -31,7 +31,7 @@ class FlutterMapWidget extends StatelessWidget {
           initialCenter: ll.LatLng(center.lat, center.lng),
           initialZoom: zoom,
           cameraConstraint: CameraConstraint.contain(bounds: worldBounds),
-          maxZoom: 15
+          maxZoom: 15,
         ),
         children: [
           TileLayer(
@@ -41,61 +41,58 @@ class FlutterMapWidget extends StatelessWidget {
           ),
           if (zones.isNotEmpty)
             PolygonLayer(
-              polygons: zones
-                  .where((z) => z.type == MapZoneType.polygon)
-                  .map(
-                    (zone) {
-                      final fillColor = _parseColor(
-                            zone.style?.fillColorHex,
-                            zone.style?.fillOpacity,
-                          ) ??
-                          Colors.blue.withOpacity(0.2);
-                      final borderColor = _parseColor(
-                            zone.style?.strokeColorHex,
-                            zone.style?.strokeOpacity,
-                          ) ??
-                          Colors.blue;
-                      return Polygon(
-                        points: zone.points
-                            .map((p) => ll.LatLng(p.lat, p.lng))
-                            .toList(),
-                        color: fillColor,
-                        borderColor: borderColor,
-                        borderStrokeWidth: (zone.style?.strokeWidth ?? 2).toDouble(),
-                      );
-                    },
-                  )
-                  .toList(),
+              polygons: zones.where((z) => z.type == MapZoneType.polygon).map((
+                zone,
+              ) {
+                final fillColor =
+                    _parseColor(
+                      zone.style?.fillColorHex,
+                      zone.style?.fillOpacity,
+                    ) ??
+                    Colors.blue.withValues(alpha: 0.2);
+                final borderColor =
+                    _parseColor(
+                      zone.style?.strokeColorHex,
+                      zone.style?.strokeOpacity,
+                    ) ??
+                    Colors.blue;
+                return Polygon(
+                  points: zone.points
+                      .map((p) => ll.LatLng(p.lat, p.lng))
+                      .toList(),
+                  color: fillColor,
+                  borderColor: borderColor,
+                  borderStrokeWidth: (zone.style?.strokeWidth ?? 2).toDouble(),
+                );
+              }).toList(),
             ),
           if (zones.any((z) => z.type == MapZoneType.polyline))
             PolylineLayer(
-              polylines: zones
-                  .where((z) => z.type == MapZoneType.polyline)
-                  .map(
-                    (zone) {
-                      final strokeColor = _parseColor(
-                            zone.style?.strokeColorHex,
-                            zone.style?.strokeOpacity,
-                          ) ??
-                          Colors.blue;
-                      return Polyline(
-                        points: zone.points
-                            .map((p) => ll.LatLng(p.lat, p.lng))
-                            .toList(),
-                        color: strokeColor,
-                        strokeWidth: (zone.style?.strokeWidth ?? 2).toDouble(),
-                      );
-                    },
-                  )
-                  .toList(),
+              polylines: zones.where((z) => z.type == MapZoneType.polyline).map(
+                (zone) {
+                  final strokeColor =
+                      _parseColor(
+                        zone.style?.strokeColorHex,
+                        zone.style?.strokeOpacity,
+                      ) ??
+                      Colors.blue;
+                  return Polyline(
+                    points: zone.points
+                        .map((p) => ll.LatLng(p.lat, p.lng))
+                        .toList(),
+                    color: strokeColor,
+                    strokeWidth: (zone.style?.strokeWidth ?? 2).toDouble(),
+                  );
+                },
+              ).toList(),
             ),
           MarkerLayer(
             markers: markers
                 .map(
                   (m) => Marker(
                     point: ll.LatLng(m.position.lat, m.position.lng),
-                    width: 36,
-                    height: 36,
+                    width: 28,
+                    height: 28,
                     child: GestureDetector(
                       behavior: HitTestBehavior.translucent,
                       onTap: onMarkerTap != null ? () => onMarkerTap!(m) : null,
@@ -127,25 +124,18 @@ class FlutterMapWidget extends StatelessWidget {
   Widget _buildMarkerIcon(MapMarkerModel marker) {
     if (marker.iconUrl != null && marker.iconUrl!.isNotEmpty) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         child: Image.network(
           marker.iconUrl!,
-          width: 30,
-          height: 30,
+          width: 24,
+          height: 24,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const Icon(
-            Icons.location_pin,
-            color: Colors.red,
-            size: 30,
-          ),
+          errorBuilder: (_, __, ___) =>
+              const Icon(Icons.location_pin, color: Colors.red, size: 24),
         ),
       );
     }
-    return const Icon(
-      Icons.location_pin,
-      color: Colors.red,
-      size: 30,
-    );
+    return const Icon(Icons.location_pin, color: Colors.red, size: 24);
   }
 
   Color? _parseColor(String? hex, double? opacity) {
@@ -168,7 +158,7 @@ class FlutterMapWidget extends StatelessWidget {
     }
     final color = Color(value);
     if (opacity != null) {
-      return color.withOpacity(opacity.clamp(0, 1));
+      return color.withValues(alpha: opacity.clamp(0, 1));
     }
     return color;
   }

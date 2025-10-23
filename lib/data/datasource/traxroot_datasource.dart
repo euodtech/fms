@@ -97,12 +97,12 @@ class TraxrootObjectsDatasource {
 
     log(
       'status: ${response.statusCode}',
-      name: 'TraxrootObjectsDatasource',
+      name: 'TraxrootObjectsDatasource.getObjectStatus',
       level: 800,
     );
 
     if (response.statusCode != 200) {
-      log(response.body, name: 'TraxrootObjectsDatasource', level: 1200);
+      log(response.body, name: 'TraxrootObjectsDatasource.getObjectStatus', level: 1200);
       throw Exception('Failed to fetch object status');
     }
 
@@ -135,14 +135,6 @@ class TraxrootObjectsDatasource {
       throw Exception('Empty Traxroot objects status response');
     }
     final list = _extractStatusList(decoded);
-    if (list.isEmpty) {
-      log(
-        'Traxroot objects status list empty',
-        name: 'TraxrootObjectsDatasource.getAll',
-        level: 900,
-      );
-      return const [];
-    }
     return list.map(TraxrootObjectStatusModel.fromMap).toList();
   }
 
@@ -381,6 +373,15 @@ Map<String, dynamic> _extractSingleStatus(dynamic payload) {
 }
 
 List<Map<String, dynamic>> _extractStatusList(dynamic payload) {
+  // If the raw payload is a map, try merging points with stats FIRST,
+  // so we don't lose iconId/ObjectId due to aggressive unwrapping.
+  if (payload is Map<String, dynamic>) {
+    final mergedFromRaw = _mergePointsWithStats(payload);
+    if (mergedFromRaw.isNotEmpty) {
+      return mergedFromRaw;
+    }
+  }
+
   final unwrapped = _unwrapTraxrootPayload(payload);
 
   final directCandidates = _normalizeDynamicList(unwrapped);

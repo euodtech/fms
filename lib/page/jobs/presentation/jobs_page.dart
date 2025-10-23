@@ -8,6 +8,7 @@ import 'package:fms/data/datasource/get_job_ongoing_datasource.dart';
 
 import '../../../data/models/response/get_job_history__response_model.dart'
     as history;
+import '../widget/job_summary_card.dart';
 import 'job_history_detail_page.dart';
 
 class JobsPage extends StatefulWidget {
@@ -169,6 +170,8 @@ class _JobsPageState extends State<JobsPage>
   }
 
   Widget _getAllJob() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = colorScheme.primary;
     if (_isLoadingAllJobs) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -185,139 +188,26 @@ class _JobsPageState extends State<JobsPage>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _allJobsResponse!.data!.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           final job = _allJobsResponse!.data![index];
-          return InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => JobDetailsPage(job: job),
-                ),
-              );
-            },
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      job.jobName ?? '',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    // Customer and Date row
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.person,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            job.customerName ?? 'Unknown Customer',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ),
-                        if (job.jobDate != null) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.calendar_today,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _formatDate(job.jobDate),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Address row
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            job.address ?? 'No address',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Job Type and Status chips
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        _buildJobTypeChip(context, job.typeJob),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'Open',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => JobDetailsPage(job: job),
-                            ),
-                          );
-                          if (result == true) {
-                            _refresh();
-                          }
-                        },
-                        child: const Text('DETAILS'),
-                      ),
-                    ),
-                  ],
-                ),
+          return JobSummaryCard(
+            title: job.jobName ?? 'Untitled Job',
+            customerName: job.customerName,
+            address: job.address,
+            dateLabel: job.jobDate != null ? _formatDate(job.jobDate) : null,
+            badges: [
+              _buildJobTypeBadge(context, job.typeJob),
+              _buildStatusBadge(
+                label: 'Open',
+                color: accent,
+                icon: Icons.outlined_flag,
               ),
-            ),
+            ],
+            accentColor: accent,
+            onTap: () => _openJobDetails(job),
+            onDetails: () => _openJobDetails(job),
+            detailsLabel: 'Details',
           );
         },
       ),
@@ -325,6 +215,8 @@ class _JobsPageState extends State<JobsPage>
   }
 
   Widget _getOngoingJob() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = colorScheme.primary;
     if (_isLoadingOngoingJobs) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -342,141 +234,26 @@ class _JobsPageState extends State<JobsPage>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _ongoingJobsResponse!.data!.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           final job = _ongoingJobsResponse!.data![index];
-          return InkWell(
-            onTap: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      JobDetailsPage(job: job, isOngoing: true),
-                ),
-              );
-              if (result == true) {
-                _refresh();
-              }
-            },
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      job.jobName ?? '',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.person,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            job.customerName ?? 'Unknown Customer',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ),
-                        if (job.jobDate != null) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.calendar_today,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _formatDate(job.jobDate),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            job.address ?? 'No address',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        _buildJobTypeChip(context, job.typeJob),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'On Going',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Colors.orange.shade700,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  JobDetailsPage(job: job, isOngoing: true),
-                            ),
-                          );
-                          if (result == true) {
-                            _refresh();
-                          }
-                        },
-                        child: const Text('DETAILS'),
-                      ),
-                    ),
-                  ],
-                ),
+          return JobSummaryCard(
+            title: job.jobName ?? 'Untitled Job',
+            customerName: job.customerName,
+            address: job.address,
+            dateLabel: job.jobDate != null ? _formatDate(job.jobDate) : null,
+            badges: [
+              _buildJobTypeBadge(context, job.typeJob),
+              _buildStatusBadge(
+                label: 'In Progress',
+                color: accent,
+                icon: Icons.timelapse,
               ),
-            ),
+            ],
+            accentColor: accent,
+            onTap: () => _openJobDetails(job, isOngoing: true),
+            onDetails: () => _openJobDetails(job, isOngoing: true),
+            detailsLabel: 'Resume',
           );
         },
       ),
@@ -484,6 +261,8 @@ class _JobsPageState extends State<JobsPage>
   }
 
   Widget _getHistoryJob() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = colorScheme.primary;
     if (_isLoadingHistoryJobs) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -501,137 +280,26 @@ class _JobsPageState extends State<JobsPage>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _historyJobsResponse!.data!.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           final job = _historyJobsResponse!.data![index];
-          return InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => JobHistoryDetailPage(job: job),
-                ),
-              );
-            },
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      job.jobName ?? '',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    // Customer and Date row
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.person,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            job.customerName ?? 'Unknown Customer',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ),
-                        if (job.jobDate != null) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.calendar_today,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _formatDate(job.jobDate),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Address row
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            job.address ?? 'No address',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Job Type and Status chips
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        _buildJobTypeChip(context, job.typeJob),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'Completed',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  JobHistoryDetailPage(job: job),
-                            ),
-                          );
-                        },
-                        child: const Text('DETAILS'),
-                      ),
-                    ),
-                  ],
-                ),
+          return JobSummaryCard(
+            title: job.jobName ?? 'Untitled Job',
+            customerName: job.customerName,
+            address: job.address,
+            dateLabel: job.jobDate != null ? _formatDate(job.jobDate) : null,
+            badges: [
+              _buildJobTypeBadge(context, job.typeJob),
+              _buildStatusBadge(
+                label: 'Completed',
+                color: Colors.green,
+                icon: Icons.verified_outlined,
               ),
-            ),
+            ],
+            accentColor: accent,
+            onTap: () => _openHistoryDetails(job),
+            onDetails: () => _openHistoryDetails(job),
+            detailsLabel: 'Report',
           );
         },
       ),
@@ -651,23 +319,48 @@ class _JobsPageState extends State<JobsPage>
     }
   }
 
-  Widget _buildJobTypeChip(BuildContext context, int? type) {
+  JobCardBadge _buildJobTypeBadge(BuildContext context, int? type) {
     final typeString = _getJobTypeString(type);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+    final accent = Theme.of(context).colorScheme.primary;
+    return JobCardBadge(
+      label: typeString,
+      icon: Icons.work_outline,
+      backgroundColor: accent.withValues(alpha: 0.22),
+      foregroundColor: accent,
+      borderColor: accent.withValues(alpha: 0.4),
+    );
+  }
+
+  JobCardBadge _buildStatusBadge({
+    required String label,
+    required Color color,
+    IconData? icon,
+  }) {
+    return JobCardBadge(
+      label: label,
+      icon: icon,
+      backgroundColor: color.withValues(alpha: 0.14),
+      foregroundColor: color,
+      borderColor: color.withValues(alpha: 0.28),
+    );
+  }
+
+  void _openJobDetails(Data job, {bool isOngoing = false}) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => JobDetailsPage(job: job, isOngoing: isOngoing),
       ),
-      child: Text(
-        typeString,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
+    );
+    if (result == true && mounted) {
+      _refresh();
+    }
+  }
+
+  void _openHistoryDetails(history.Data job) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => JobHistoryDetailPage(job: job)),
     );
   }
 

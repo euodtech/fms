@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
 
-import '../widget/chip_job_detail.dart';
 import 'job_navigation_page.dart';
+import 'job_report_page.dart';
 
 class JobHistoryDetailPage extends StatelessWidget {
   final Data job;
@@ -12,18 +12,96 @@ class JobHistoryDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
     final latitude = job.latitude;
     final longitude = job.longitude;
+    Widget buildPill(
+      String label, {
+      IconData? icon,
+      Color? background,
+      Color? foreground,
+      Color? borderColor,
+    }) {
+      final pillForeground = foreground ?? colorScheme.primary;
+      final pillBackground =
+          background ??
+          colorScheme.primaryContainer.withValues(
+            alpha: foreground == null ? 0.18 : 0.22,
+          );
+
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: pillBackground,
+          border: Border.all(
+            color: (borderColor ?? pillForeground).withValues(alpha: 0.24),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: pillForeground),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: pillForeground,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget buildSectionHeader({required IconData icon, required String title}) {
+      return Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFF4C8DFF), Color(0xFF1E58FF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x2200185C),
+                  blurRadius: 12,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(job.jobName ?? 'Job History Details'),
-        actions: [
-          IconButton(
-            tooltip: 'More',
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {},
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     tooltip: 'More',
+        //     icon: const Icon(Icons.more_vert),
+        //     onPressed: () {},
+        //   ),
+        // ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -32,271 +110,392 @@ class JobHistoryDetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header Card
                 Card(
-                  elevation: 1,
+                  elevation: 0,
+                  color: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(28),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.history,
-                            color: theme.colorScheme.primary,
-                          ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF7BD6FF),
+                          Color(0xFF5AB6FF),
+                          Color(0xFF3E8BFF),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: const Color(0x59FFFFFF),
+                        width: 1.2,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x332D6BFF),
+                          blurRadius: 32,
+                          offset: Offset(0, 18),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                job.jobName ?? 'Job',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  ChipJobDetail(
-                                    label: 'Status: Completed',
-                                    color: Colors.green,
-                                  ),
-                                  if (job.jobDate != null)
-                                    ChipJobDetail(
-                                      label:
-                                          'Date: ${_formatDate(job.jobDate)}',
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        BoxShadow(
+                          color: Color(0x1AFFFFFF),
+                          blurRadius: 12,
+                          offset: Offset(-6, -6),
                         ),
                       ],
                     ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Customer Information
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.person,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Customer',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          job.customerName ?? 'N/A',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        if (job.phoneNumber != null) ...[
-                          const SizedBox(height: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.phone,
-                                color: theme.colorScheme.primary,
+                              Container(
+                                width: 62,
+                                height: 62,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0x66FFFFFF),
+                                      Color(0x33FFFFFF),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  border: Border.all(
+                                    color: const Color(0x80FFFFFF),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.history,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                job.phoneNumber!,
-                                style: theme.textTheme.bodyMedium,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      job.jobName ?? 'Job',
+                                      style: textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Completed job record',
+                                      style: textTheme.bodyMedium?.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.86,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              buildPill(
+                                'Status: Completed',
+                                icon: Icons.verified_outlined,
+                                foreground: Colors.white,
+                                background: const Color(
+                                  0xFF34C759,
+                                ).withValues(alpha: 0.25),
+                                borderColor: Colors.white,
+                              ),
+                              if (job.jobDate != null)
+                                buildPill(
+                                  'Date: ${_formatDate(job.jobDate)}',
+                                  icon: Icons.calendar_today_outlined,
+                                  foreground: Colors.white,
+                                  background: Colors.white.withValues(
+                                    alpha: 0.22,
+                                  ),
+                                  borderColor: Colors.white,
+                                ),
                             ],
                           ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                // Address
                 Card(
                   elevation: 0,
+                  color: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(22),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.place, color: theme.colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Address',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFFFFF), Color(0xFFF4F7FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(color: const Color(0x2132638F)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1432638F),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildSectionHeader(
+                            icon: Icons.person,
+                            title: 'Customer',
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            job.customerName ?? 'N/A',
+                            style: textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (job.phoneNumber != null) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.phone,
+                                  color: Color(0xFF1E58FF),
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    job.phoneNumber!,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                Card(
+                  elevation: 0,
+                  color: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFFFFF), Color(0xFFF2F6FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(color: const Color(0x2E3A4CFF)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1432638F),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          job.address ?? 'N/A',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: latitude != null && longitude != null
-                              ? () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => JobNavigationPage(
-                                        latitude: latitude,
-                                        longitude: longitude,
-                                        jobName: job.jobName ?? 'Job Destination',
-                                        address: job.address,
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildSectionHeader(
+                            icon: Icons.place,
+                            title: 'Address',
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            job.address ?? 'N/A',
+                            style: textTheme.bodyMedium?.copyWith(height: 1.5),
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: latitude != null && longitude != null
+                                ? () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => JobNavigationPage(
+                                          latitude: latitude,
+                                          longitude: longitude,
+                                          jobName:
+                                              job.jobName ?? 'Job Destination',
+                                          address: job.address,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                }
-                              : () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Coordinates not available'),
-                                    ),
-                                  );
-                                },
-                          icon: const Icon(Icons.map_outlined),
-                          label: const Text('Open in Map'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Job Information
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Job Information',
-                              style: theme.textTheme.titleSmall?.copyWith(
+                                    );
+                                  }
+                                : () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Coordinates not available',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                            icon: const Icon(Icons.map_outlined),
+                            style: TextButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              padding: EdgeInsets.zero,
+                              textStyle: textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        _InfoRow(
-                          label: 'Job Type',
-                          value: _getJobTypeString(job.typeJob),
-                        ),
-                        _InfoRow(
-                          label: 'Created By',
-                          value: job.createdBy?.toString() ?? 'N/A',
-                        ),
-                        if (job.createdAt != null)
-                          _InfoRow(
-                            label: 'Created At',
-                            value: _formatDate(job.createdAt),
-                          ),
-                        if (job.assignWhen != null)
-                          _InfoRow(
-                            label: 'Assigned At',
-                            value: _formatDate(job.assignWhen),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Work Details
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.work_outline,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Work Details',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                              overlayColor: colorScheme.primary.withValues(
+                                alpha: 0.08,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Job completed successfully. All electrical connections have been restored and tested.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            height: 1.5,
+                            label: const Text('Open in Map'),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 100), // for bottom action spacing
+                const SizedBox(height: 12),
+
+                Card(
+                  elevation: 0,
+                  color: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFFFFF), Color(0xFFEAF1FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(color: const Color(0x2132638F)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1432638F),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildSectionHeader(
+                            icon: Icons.info_outline,
+                            title: 'Job Information',
+                          ),
+                          const SizedBox(height: 16),
+                          _InfoRow(
+                            label: 'Job Type',
+                            value: _getJobTypeString(job.typeJob),
+                          ),
+                          const SizedBox(height: 12),
+                          _InfoRow(
+                            label: 'Created By',
+                            value: job.createdBy?.toString() ?? 'N/A',
+                          ),
+                          if (job.createdAt != null) ...[
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              label: 'Created At',
+                              value: _formatDate(job.createdAt),
+                            ),
+                          ],
+                          if (job.assignWhen != null) ...[
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              label: 'Assigned At',
+                              value: _formatDate(job.assignWhen),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                Card(
+                  elevation: 0,
+                  color: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFFFFF), Color(0xFFF6F8FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(color: const Color(0x2132638F)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1432638F),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildSectionHeader(
+                            icon: Icons.work_outline,
+                            title: 'Work Details',
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Job completed successfully. All electrical connections have been restored and tested.',
+                            style: textTheme.bodyMedium?.copyWith(height: 1.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 120),
               ],
             ),
           ),
@@ -311,9 +510,9 @@ class JobHistoryDetailPage extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Report generation not implemented'),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => JobReportPage(job: job),
                       ),
                     );
                   },
@@ -321,24 +520,40 @@ class JobHistoryDetailPage extends StatelessWidget {
                   label: const Text('View Report'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    side: BorderSide(
+                      color: colorScheme.primary.withValues(alpha: 0.4),
+                    ),
+                    foregroundColor: colorScheme.primary,
+                    overlayColor: colorScheme.primary.withValues(alpha: 0.08),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Similar job created')),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Similar Job'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ),
+
+              // Expanded(
+              //   child: ElevatedButton.icon(
+              //     onPressed: () {
+              //       ScaffoldMessenger.of(context).showSnackBar(
+              //         const SnackBar(content: Text('Similar job created')),
+              //       );
+              //     },
+              //     icon: const Icon(Icons.add),
+              //     label: const Text('Similar Job'),
+              //     style: ElevatedButton.styleFrom(
+              //       padding: const EdgeInsets.symmetric(vertical: 14),
+              //       shape: RoundedRectangleBorder(
+              //         borderRadius: BorderRadius.circular(16),
+              //       ),
+              //       backgroundColor: colorScheme.primary,
+              //       foregroundColor: colorScheme.onPrimary,
+              //       shadowColor: colorScheme.primary.withValues(alpha:0.4),
+              //       overlayColor: colorScheme.primary.withValues(alpha:0.12),
+              //     ),
+              //   ),
+              // ),
             ],
           ),
         ),
@@ -390,18 +605,26 @@ class _InfoRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.end,
             ),
           ),
         ],

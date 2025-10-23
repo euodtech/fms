@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fms/core/widgets/object_status_bottom_sheet.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/traxroot_icon_model.dart';
@@ -20,6 +21,9 @@ class _VehiclesPageState extends State<VehiclesPage> {
   List<TraxrootObjectModel> _objects = const [];
   Map<int, TraxrootIconModel> _iconsById = const {};
   int? _loadingObjectId;
+  String _query = '';
+  String? _selectedGroup;
+  List<String> _availableGroups = const [];
 
   @override
   void initState() {
@@ -48,6 +52,17 @@ class _VehiclesPageState extends State<VehiclesPage> {
         _objects = objects;
         _iconsById = iconMap;
         _loading = false;
+        final groups = objects
+            .map((o) => o.service?.serverGroup)
+            .where((g) => g != null && g.isNotEmpty)
+            .cast<String>()
+            .toSet()
+            .toList()
+          ..sort();
+        _availableGroups = groups;
+        if (_selectedGroup != null && !_availableGroups.contains(_selectedGroup)) {
+          _selectedGroup = null;
+        }
       });
       if (iconMap.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -73,63 +88,117 @@ class _VehiclesPageState extends State<VehiclesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _loadData,
-      child: _loading && _objects.isEmpty
-          ? ListView(
-              children: const [
-                SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
-              ],
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _objects.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final vehicle = _objects[index];
-                final iconId = vehicle.iconId;
-                final iconUrl = iconId != null ? _iconsById[iconId]?.url : null;
-                final subtitle = vehicle.main?.comment;
-                final isBusy = _loadingObjectId != null && vehicle.id == _loadingObjectId;
+    final theme = Theme.of(context);
+    final query = _query.trim().toLowerCase();
+    final filtered = _objects.where((v) {
+      final matchGroup = _selectedGroup == null || _selectedGroup!.isEmpty || v.service?.serverGroup == _selectedGroup;
+      final name = (v.name ?? '').toLowerCase();
+      final comment = (v.main?.comment ?? '').toLowerCase();
+      final matchText = query.isEmpty || name.contains(query) || comment.contains(query);
+      return matchGroup && matchText;
+    }).toList();
 
-                return Card(
-                  child: ListTile(
-                    leading: _VehicleIcon(url: iconUrl),
-                    title: Text(
-                      vehicle.name ?? 'Object ${vehicle.id ?? index + 1}',
-                      style: Theme.of(context).textTheme.titleMedium,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                children: [
+                  TextField(
+                    onChanged: (v) => setState(() => _query = v),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      labelText: 'Search vehicles',
+                      hintText: 'Type name or note',
                     ),
-                    subtitle: subtitle != null && subtitle.isNotEmpty
-                        ? Text(
-                            subtitle,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          )
-                        : null,
-                    trailing: isBusy
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'Track',
-                                onPressed: vehicle.id == null ? null : () => _openVehicleTracking(vehicle),
-                                icon: const Icon(Icons.near_me_outlined),
-                              ),
-                              IconButton(
-                                tooltip: 'Detail',
-                                onPressed: vehicle.id == null ? null : () => _showVehicleSummary(vehicle),
-                                icon: const Icon(Icons.info_outline),
-                              ),
-                            ],
-                          ),
                   ),
-                );
-              },
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _selectedGroup,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.group_outlined),
+                      labelText: 'Group',
+                    ),
+                    items: <DropdownMenuItem<String>>[
+                      const DropdownMenuItem(value: '', child: Text('All groups')),
+                      ..._availableGroups.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                    ],
+                    onChanged: (value) => setState(() {
+                      _selectedGroup = (value == null || value.isEmpty) ? null : value;
+                    }),
+                  ),
+                ],
+              ),
             ),
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadData,
+            child: _loading && _objects.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
+                    ],
+                  )
+                : ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final vehicle = filtered[index];
+                      final iconId = vehicle.iconId;
+                      final iconUrl = iconId != null ? _iconsById[iconId]?.url : null;
+                      final subtitle = vehicle.main?.comment;
+                      final isBusy = _loadingObjectId != null && vehicle.id == _loadingObjectId;
+
+                      return Card(
+                        child: ListTile(
+                          leading: _VehicleIcon(url: iconUrl),
+                          title: Text(
+                            vehicle.name ?? 'Object ${vehicle.id ?? index + 1}',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          subtitle: subtitle != null && subtitle.isNotEmpty
+                              ? Text(
+                                  subtitle,
+                                  style: theme.textTheme.bodyMedium,
+                                )
+                              : null,
+                          trailing: isBusy
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Track',
+                                      onPressed: vehicle.id == null ? null : () => _openVehicleTracking(vehicle),
+                                      icon: const Icon(Icons.near_me_outlined),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Detail',
+                                      onPressed: vehicle.id == null ? null : () => _showVehicleSummary(vehicle),
+                                      icon: const Icon(Icons.info_outline),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -221,17 +290,33 @@ class _VehicleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (url == null || url!.isEmpty) {
-      return const CircleAvatar(child: Icon(Icons.directions_car));
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: Image.network(
-        url!,
-        width: 25,
-        height: 25,
-        // fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const CircleAvatar(child: Icon(Icons.directions_car)),
+    final theme = Theme.of(context);
+    final borderColor = theme.colorScheme.outline.withValues(alpha: 0.2);
+    final radius = BorderRadius.circular(8);
+
+    Widget fallbackIcon() => const Icon(Icons.directions_car, size: 18);
+
+    return Container
+      (
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: radius,
+        border: Border.all(color: borderColor),
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: (url == null || url!.isEmpty)
+            ? Center(child: fallbackIcon())
+            : CachedNetworkImage(
+                imageUrl: url!,
+                width: 36,
+                height: 36,
+                fit: BoxFit.contain,
+                placeholder: (_, __) => Center(child: fallbackIcon()),
+                errorWidget: (_, __, ___) => Center(child: fallbackIcon()),
+              ),
       ),
     );
   }

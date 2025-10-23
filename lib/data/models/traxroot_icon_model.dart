@@ -48,8 +48,21 @@ class TraxrootIconModel {
       return value.toString();
     }
 
+    int? _asInt(dynamic value) {
+      if (value is int) {
+        return value;
+      }
+      if (value is num) {
+        return value.toInt();
+      }
+      if (value is String) {
+        return int.tryParse(value);
+      }
+      return null;
+    }
+
     return TraxrootIconModel(
-      id: map['id'] as int?,
+      id: _asInt(map['id']),
       url: normalizeUrl(_asString(map['url'])),
       urlCross: normalizeUrl(_asString(map['urlCross'])),
       urlDisabled: normalizeUrl(_asString(map['urlDisabled'])),

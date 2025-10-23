@@ -72,6 +72,9 @@ class _HomeTabState extends State<HomeTab> {
       };
 
       final iconUrlByObjectId = <int, String>{};
+      final iconUrlByObjectName = <String, String>{};
+      final iconUrlByTrackerId = <String, String>{};
+      final trackersByObject = <int, Set<String>>{};
       for (final object in objects) {
         final objectId = object.id;
         if (objectId == null) {
@@ -84,13 +87,172 @@ class _HomeTabState extends State<HomeTab> {
         final iconUrl = iconsById[iconId]?.url;
         if (iconUrl != null && iconUrl.isNotEmpty) {
           iconUrlByObjectId[objectId] = iconUrl;
+          final name = object.name;
+          if (name != null && name.isNotEmpty) {
+            iconUrlByObjectName[name] = iconUrl;
+          }
+          // Try to discover tracker IDs inside the raw object payload (case-insensitive keys like 'tracker', 'imei')
+          void collectTrackers(dynamic node) {
+            if (node is Map) {
+              for (final entry in node.entries) {
+                final key = '${entry.key}'.toLowerCase();
+                final value = entry.value;
+                if (key.contains('tracker') || key.contains('imei')) {
+                  final text = value?.toString().trim();
+                  if (text != null && text.isNotEmpty) {
+                    iconUrlByTrackerId.putIfAbsent(text, () => iconUrl);
+                    trackersByObject.putIfAbsent(objectId, () => <String>{}).add(text);
+                  }
+                }
+                collectTrackers(value);
+              }
+            } else if (node is List) {
+              for (final v in node) {
+                collectTrackers(v);
+              }
+            }
+          }
+          collectTrackers(object.raw);
         }
       }
 
+      // If statuses are empty, fallback to using /Objects locations so the map shows vehicle icons
+      if (statuses.isEmpty) {
+        final fallbackMarkers = <MapMarkerModel>[];
+        final usedIconUrls = <String>{};
+        for (final object in objects) {
+          final lat = object.latitude;
+          final lng = object.longitude;
+          if (lat == null || lng == null) continue;
+          final iconUrl = object.iconId != null ? iconsById[object.iconId!]?.url : null;
+          if (iconUrl != null && iconUrl.isNotEmpty) {
+            usedIconUrls.add(iconUrl);
+          }
+          final statusLike = TraxrootObjectStatusModel(
+            id: object.id,
+            name: object.name,
+            latitude: lat,
+            longitude: lng,
+            address: object.address,
+            iconId: object.iconId,
+          );
+          final marker = statusLike.toMarker(icon: iconUrl);
+          if (marker != null) {
+            fallbackMarkers.add(marker);
+          }
+        }
+
+        final zones = <MapZoneModel>[];
+        for (final geozone in geozones) {
+          final zoneModel = geozone.toZoneModel();
+          if (zoneModel != null) {
+            zones.add(zoneModel);
+          }
+        }
+
+        if (!mounted) return;
+        setState(() {
+          _markers = fallbackMarkers;
+          _zones = zones;
+          _objects = const []; // statuses absent; we used object fallback
+          _iconUrlByObjectId = iconUrlByObjectId;
+          _allJobsResponse = allJobs;
+          _ongoingJobsResponse = ongoingJobs;
+          _completedJobsResponse = completedJobs;
+          _loading = false;
+        });
+
+        if (usedIconUrls.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            for (final url in usedIconUrls) {
+              precacheImage(NetworkImage(url), context);
+            }
+          });
+        }
+        return;
+      }
+
+      // Build status lookups for fast matching
+      final statusesById = <int, TraxrootObjectStatusModel>{};
+      final statusesByName = <String, TraxrootObjectStatusModel>{};
+      final statusesByTracker = <String, TraxrootObjectStatusModel>{};
+      for (final s in statuses) {
+        if (s.id != null) statusesById[s.id!] = s;
+        if (s.name != null && s.name!.isNotEmpty) statusesByName[s.name!] = s;
+        if (s.trackerId != null && s.trackerId!.isNotEmpty) statusesByTracker[s.trackerId!] = s;
+      }
+
       final markers = <MapMarkerModel>[];
-      for (final status in statuses) {
-        final iconUrl = status.id != null ? iconUrlByObjectId[status.id!] : null;
-        final marker = status.toMarker(icon: iconUrl);
+      final usedIconUrls = <String>{};
+      
+      // Iterate /Objects and fetch real location from /ObjectsStatus per object
+      for (final object in objects) {
+        final objectId = object.id;
+        if (objectId == null) continue;
+        
+        final objectName = object.name;
+        final iconUrl = object.iconId != null ? iconsById[object.iconId!]?.url : null;
+        
+        if (iconUrl != null && iconUrl.isNotEmpty) {
+          usedIconUrls.add(iconUrl);
+        }
+
+        // Find matching status by id, name, or tracker
+        TraxrootObjectStatusModel? matchedStatus;
+        matchedStatus = statusesById[objectId];
+        if (matchedStatus == null && objectName != null && objectName.isNotEmpty) {
+          matchedStatus = statusesByName[objectName];
+        }
+        if (matchedStatus == null) {
+          final trackers = trackersByObject[objectId];
+          if (trackers != null) {
+            for (final t in trackers) {
+              final s = statusesByTracker[t];
+              if (s != null) {
+                matchedStatus = s;
+                break;
+              }
+            }
+          }
+        }
+
+        // If no status from /ObjectsStatus, fetch latest point per object
+        if (matchedStatus == null) {
+          try {
+            matchedStatus = await _objectsDatasource.getLatestPoint(objectId: objectId);
+          } catch (_) {
+            // Skip this object if we can't get location
+            continue;
+          }
+        }
+
+        // Only create marker if we have valid lat/lon (not 0.0, 0.0)
+        final lat = matchedStatus?.latitude;
+        final lon = matchedStatus?.longitude;
+        if (lat == null || lon == null || (lat == 0.0 && lon == 0.0)) {
+          continue;
+        }
+
+        // Compose marker with real location from status
+        final composed = TraxrootObjectStatusModel(
+          id: objectId,
+          name: objectName,
+          trackerId: matchedStatus?.trackerId,
+          latitude: lat,
+          longitude: lon,
+          address: matchedStatus?.address,
+          speed: matchedStatus?.speed,
+          course: matchedStatus?.course,
+          altitude: matchedStatus?.altitude,
+          status: matchedStatus?.status,
+          updatedAt: matchedStatus?.updatedAt,
+          satellites: matchedStatus?.satellites,
+          accuracy: matchedStatus?.accuracy,
+          iconId: object.iconId,
+        );
+
+        final marker = composed.toMarker(icon: iconUrl);
         if (marker != null) {
           markers.add(marker);
         }
@@ -116,10 +278,10 @@ class _HomeTabState extends State<HomeTab> {
         _loading = false;
       });
 
-      if (iconUrlByObjectId.isNotEmpty) {
+      if (usedIconUrls.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          final precacheTargets = iconUrlByObjectId.values.toSet();
+          final precacheTargets = usedIconUrls;
           for (final url in precacheTargets) {
             precacheImage(NetworkImage(url), context);
           }
@@ -138,9 +300,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   GeoPoint get _mapCenter {
-    if (_markers.isNotEmpty) {
-      return _markers.first.position;
-    }
+    // Always use Manila as center, not first marker
     return _defaultCenter;
   }
 

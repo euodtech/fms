@@ -9,11 +9,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/permissions/permission_helper.dart';
+import '../../../data/datasource/cancel_job_datasource.dart';
 import '../../../data/datasource/finish_job_datasource.dart';
 import '../../../data/datasource/traxroot_datasource.dart';
 import '../../../core/models/geo.dart';
 import '../../profile/presentation/profile_page.dart';
-import '../widget/chip_job_detail.dart';
 
 import 'package:fms/data/datasource/driver_get_job_datasource.dart';
 import 'package:fms/data/models/response/driver_get_job_response_model.dart';
@@ -30,9 +30,17 @@ class JobDetailsPage extends StatefulWidget {
 }
 
 class _JobDetailsPageState extends State<JobDetailsPage> {
+  final TextEditingController _cancelReasonController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _cancelReasonController.dispose();
+    super.dispose();
   }
 
   void _shareJobDetails() {
@@ -63,43 +71,124 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
     final job = widget.job;
     final isOngoing = widget.isOngoing;
+
+    Widget buildPill(
+      String label, {
+      IconData? icon,
+      Color? background,
+      Color? foreground,
+      Color? borderColor,
+    }) {
+      final pillForeground = foreground ?? colorScheme.primary;
+      final pillBackground =
+          background ??
+          colorScheme.primaryContainer.withValues(
+            alpha: foreground == null ? 0.18 : 0.22,
+          );
+
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: pillBackground,
+          border: Border.all(
+            color: (borderColor ?? pillForeground).withValues(alpha: 0.24),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: pillForeground),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: pillForeground,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget buildSectionHeader({required IconData icon, required String title}) {
+      return Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFF4C8DFF), Color(0xFF1E58FF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x2200185C),
+                  blurRadius: 12,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ],
+      );
+    }
+
+    const sectionSpacing = 12.0;
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(job.jobName ?? 'Job Details'),
         actions: [
-          IconButton(
-            tooltip: 'More',
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              // Show more options
-              showModalBottomSheet(
-                context: context,
-                builder: (context) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.share),
-                      title: const Text('Share'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _shareJobDetails();
-                      },
-                    ),
-                    // ListTile(
-                    //   leading: const Icon(Icons.report),
-                    //   title: const Text('Report'),
-                    //   onTap: () {
-                    //     Navigator.pop(context);
-                    //     // Implement report functionality
-                    //   },
-                    // ),
-                  ],
-                ),
-              );
-            },
-          ),
+          // IconButton(
+          //   tooltip: 'More',
+          //   icon: const Icon(Icons.more_vert),
+          //   onPressed: () {
+          //     // Show more options
+          //     showModalBottomSheet(
+          //       context: context,
+          //       builder: (context) => Column(
+          //         mainAxisSize: MainAxisSize.min,
+          //         children: [
+          //           ListTile(
+          //             leading: const Icon(Icons.share),
+          //             title: const Text('Share'),
+          //             onTap: () {
+          //               Navigator.pop(context);
+          //               _shareJobDetails();
+          //             },
+          //           ),
+          //           // ListTile(
+          //           //   leading: const Icon(Icons.report),
+          //           //   title: const Text('Report'),
+          //           //   onTap: () {
+          //           //     Navigator.pop(context);
+          //           //     // Implement report functionality
+          //           //   },
+          //           // ),
+          //         ],
+          //       ),
+          //     );
+          //   },
+          // ),
           IconButton(
             tooltip: 'Profile',
             icon: const Icon(Icons.person),
@@ -119,210 +208,322 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header Card
                 Card(
-                  elevation: 1,
+                  elevation: 0,
+                  color: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(28),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.assignment_turned_in,
-                            color: theme.colorScheme.primary,
-                          ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF7BD6FF),
+                          Color(0xFF5AB6FF),
+                          Color(0xFF3E8BFF),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: const Color(0x59FFFFFF),
+                        width: 1.2,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x332D6BFF),
+                          blurRadius: 32,
+                          offset: Offset(0, 18),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                job.jobName ?? 'Job',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  ChipJobDetail(
-                                    color: isOngoing
-                                        ? Colors.orange
-                                        : Colors.grey,
-                                    label: isOngoing
-                                        ? 'Status: Ongoing'
-                                        : 'Status: Open',
-                                  ),
-                                  if (job.jobDate != null)
-                                    ChipJobDetail(
-                                      label:
-                                          'Date: ${_formatDate(job.jobDate)}',
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        BoxShadow(
+                          color: Color(0x1AFFFFFF),
+                          blurRadius: 12,
+                          offset: Offset(-6, -6),
                         ),
                       ],
                     ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Customer Information
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.person,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Customer',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          job.customerName ?? 'N/A',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        if (job.phoneNumber != null) ...[
-                          const SizedBox(height: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.phone,
-                                color: theme.colorScheme.primary,
+                              Container(
+                                width: 62,
+                                height: 62,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0x66FFFFFF),
+                                      Color(0x33FFFFFF),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  border: Border.all(
+                                    color: const Color(0x80FFFFFF),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.assignment_turned_in,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                job.phoneNumber!,
-                                style: theme.textTheme.bodyMedium,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      job.jobName ?? 'Job',
+                                      style: textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _getJobTypeString(job.typeJob),
+                                      style: textTheme.bodyMedium?.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.86,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              buildPill(
+                                isOngoing ? 'Status: Ongoing' : 'Status: Open',
+                                icon: isOngoing
+                                    ? Icons.timelapse
+                                    : Icons.event_available,
+                                foreground: Colors.white,
+                                background: isOngoing
+                                    ? Colors.orange.withValues(alpha: 0.28)
+                                    : Colors.white.withValues(alpha: 0.22),
+                                borderColor: Colors.white,
+                              ),
+                              if (job.jobDate != null)
+                                buildPill(
+                                  'Date: ${_formatDate(job.jobDate)}',
+                                  icon: Icons.calendar_today_outlined,
+                                  foreground: Colors.white,
+                                  background: Colors.white.withValues(
+                                    alpha: 0.22,
+                                  ),
+                                  borderColor: Colors.white,
+                                ),
                             ],
                           ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: sectionSpacing),
 
-                // Address
                 Card(
                   elevation: 0,
+                  color: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(22),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.place, color: theme.colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Address',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          job.address ?? 'N/A',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: () => _navigateToJob(context),
-                          icon: const Icon(Icons.map_outlined),
-                          label: const Text('Open in Map'),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFFFFF), Color(0xFFF4F7FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(color: const Color(0x2132638F)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1432638F),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
                         ),
                       ],
                     ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Job Information
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Job Information',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        _InfoRow(
-                          label: 'Job Type',
-                          value: _getJobTypeString(job.typeJob),
-                        ),
-                        _InfoRow(
-                          label: 'Created By',
-                          value: job.createdBy?.toString() ?? 'N/A',
-                        ),
-                        if (job.createdAt != null)
-                          _InfoRow(
-                            label: 'Created At',
-                            value: _formatDate(job.createdAt),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildSectionHeader(
+                            icon: Icons.person,
+                            title: 'Customer',
                           ),
-                      ],
+                          const SizedBox(height: 16),
+                          Text(
+                            job.customerName ?? 'N/A',
+                            style: textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (job.phoneNumber != null) ...[
+                            const SizedBox(height: 12),
+                            GestureDetector(
+                              onTap: () => _callPhone(job.phoneNumber!),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.phone,
+                                    color: colorScheme.primary,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      job.phoneNumber!,
+                                      style: textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 100), // for bottom action spacing
+                const SizedBox(height: sectionSpacing),
+
+                Card(
+                  elevation: 0,
+                  color: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFFFFF), Color(0xFFF2F6FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(color: const Color(0x2E3A4CFF)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1432638F),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildSectionHeader(
+                            icon: Icons.place,
+                            title: 'Address',
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            job.address ?? 'N/A',
+                            style: textTheme.bodyMedium?.copyWith(height: 1.5),
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: () => _navigateToJob(context),
+                            icon: const Icon(Icons.map_outlined),
+                            style: TextButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              padding: EdgeInsets.zero,
+                              textStyle: textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overlayColor: colorScheme.primary.withValues(
+                                alpha: 0.08,
+                              ),
+                            ),
+                            label: const Text('Open in Map'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: sectionSpacing),
+
+                Card(
+                  elevation: 0,
+                  color: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFFFFF), Color(0xFFEFF3FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(color: const Color(0x2132638F)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1432638F),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildSectionHeader(
+                            icon: Icons.info_outline,
+                            title: 'Job Information',
+                          ),
+                          const SizedBox(height: 16),
+                          _InfoRow(
+                            label: 'Job Type',
+                            value: _getJobTypeString(job.typeJob),
+                          ),
+                          const SizedBox(height: 12),
+                          _InfoRow(
+                            label: 'Created By',
+                            value: job.createdBy?.toString() ?? 'N/A',
+                          ),
+                          if (job.createdAt != null) ...[
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              label: 'Created At',
+                              value: _formatDate(job.createdAt),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 120),
               ],
             ),
           ),
@@ -338,36 +539,47 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
               if (isOngoing)
                 Row(
                   children: [
+                    // Expanded(
+                    //   child: OutlinedButton.icon(
+                    //     onPressed: () {
+                    //       ScaffoldMessenger.of(context).showSnackBar(
+                    //         const SnackBar(
+                    //           content: Text('Postpone feature coming soon'),
+                    //         ),
+                    //       );
+                    //     },
+                    //     icon: const Icon(Icons.schedule),
+                    //     label: const Text('Postpone'),
+                    //     style: OutlinedButton.styleFrom(
+                    //       padding: const EdgeInsets.symmetric(vertical: 14),
+                    //       shape: RoundedRectangleBorder(
+                    //         borderRadius: BorderRadius.circular(16),
+                    //       ),
+                    //       side: BorderSide(
+                    //         color: colorScheme.primary.withValues(alpha:0.4),
+                    //       ),
+                    //       foregroundColor: colorScheme.primary,
+                    //     ),
+                    //   ),
+                    // ),
+                    // const SizedBox(width: 12),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Postpone feature coming soon'),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.schedule),
-                        label: const Text('Postpone'),
+                        onPressed: () => _navigateToJob(context),
+                        icon: const Icon(Icons.navigation_outlined),
+                        label: const Text('Navigate'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Cancel feature coming soon'),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.cancel_outlined),
-                        label: const Text('Cancel'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          side: BorderSide(
+                            color: colorScheme.primary.withValues(alpha: 0.4),
+                          ),
+                          foregroundColor: colorScheme.primary,
+                          overlayColor: colorScheme.primary.withValues(
+                            alpha: 0.08,
+                          ),
                         ),
                       ),
                     ),
@@ -376,13 +588,23 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
               if (isOngoing) const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
+                  if (isOngoing) Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _navigateToJob(context),
-                      icon: const Icon(Icons.navigation_outlined),
-                      label: const Text('Navigate'),
+                      onPressed: () {
+                        _cancelJob(context);
+                      },
+                      icon: const Icon(Icons.cancel_outlined),
+                      label: const Text('Cancel'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        side: BorderSide(
+                          color: colorScheme.error.withValues(alpha: 0.35),
+                        ),
+                        foregroundColor: colorScheme.error,
+                        overlayColor: colorScheme.error.withValues(alpha: 0.08),
                       ),
                     ),
                   ),
@@ -396,6 +618,15 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                       label: Text(isOngoing ? 'Finish Job' : 'Start Job'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
+                        shadowColor: colorScheme.primary.withValues(alpha: 0.4),
+                        overlayColor: colorScheme.primary.withValues(
+                          alpha: 0.12,
+                        ),
                       ),
                     ),
                   ),
@@ -425,6 +656,17 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final dateTime = _parseDate(value);
     if (dateTime == null) return 'N/A';
     return DateFormat('EEE, dd MMM yyyy').format(dateTime);
+  }
+
+  Future<void> _callPhone(String rawNumber) async {
+    final sanitized = rawNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = Uri(scheme: 'tel', path: sanitized);
+    final launched = await launchUrl(uri);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cannot open phone dialer')));
+    }
   }
 
   DateTime? _parseDate(dynamic value) {
@@ -767,6 +1009,185 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     return result;
   }
 
+  Future<String?> _askCancelReason(BuildContext context) async {
+    final suggestions = <String>[
+      'Customer not available',
+      'Wrong address',
+      'Vehicle issue',
+      'Weather issue',
+      'Other',
+    ];
+    final controller = _cancelReasonController;
+    controller.clear();
+    int selectedIndex = -1;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Cancel Reason'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (int i = 0; i < suggestions.length; i++)
+                      ChoiceChip(
+                        label: Text(suggestions[i]),
+                        selected: selectedIndex == i,
+                        onSelected: (val) {
+                          setState(() => selectedIndex = val ? i : -1);
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: 'Type additional details (optional)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                String reason = '';
+                if (selectedIndex >= 0) {
+                  reason = suggestions[selectedIndex];
+                }
+                final note = controller.text.trim();
+                if (note.isNotEmpty) {
+                  reason = reason.isEmpty ? note : '$reason — $note';
+                }
+                if (reason.trim().isEmpty) {
+                  return;
+                }
+                Navigator.of(dialogContext).pop(reason.trim());
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.clear();
+    return result;
+  }
+
+  Future<void> _cancelJob(BuildContext context) async {
+    final jobId = widget.job.jobId as int?;
+    if (jobId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Job ID not found',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Cancel Job'),
+            content: const Text('Are you sure you want to cancel this job?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('No'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Yes, Cancel'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    final reason = await _askCancelReason(context);
+    if (!mounted) return;
+    if (reason == null || reason.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please provide a reason',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final datasource = CancelJobDatasource();
+      final response = await datasource.cancelJob(
+        jobId: jobId,
+        reason: reason.trim(),
+      );
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop();
+
+      final success = response.success == true;
+      final message =
+          response.message ??
+          (success ? 'Success Cancel Job' : 'Failed to cancel job');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message, style: const TextStyle(color: Colors.white)),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+
+      if (success) {
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      log('Failed to cancel job: ${e.toString()}');
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Failed to cancel job',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _navigateToJob(BuildContext context) async {
     final coordinates = _extractJobCoordinates(widget.job);
 
@@ -987,18 +1408,26 @@ class _InfoRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.end,
             ),
           ),
         ],

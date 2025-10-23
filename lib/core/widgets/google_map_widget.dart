@@ -27,16 +27,22 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
   @override
   Widget build(BuildContext context) {
     final markers = widget.markers
-        .map((m) => Marker(
-              markerId: MarkerId(m.id),
-              position: LatLng(m.position.lat, m.position.lng),
-              infoWindow: InfoWindow(
-                title: m.title,
-                snippet: m.subtitle,
-                onTap: widget.onMarkerTap != null ? () => widget.onMarkerTap!(m) : null,
-              ),
-              onTap: widget.onMarkerTap != null ? () => widget.onMarkerTap!(m) : null,
-            ))
+        .map(
+          (m) => Marker(
+            markerId: MarkerId(m.id),
+            position: LatLng(m.position.lat, m.position.lng),
+            infoWindow: InfoWindow(
+              title: m.title,
+              snippet: m.subtitle,
+              onTap: widget.onMarkerTap != null
+                  ? () => widget.onMarkerTap!(m)
+                  : null,
+            ),
+            onTap: widget.onMarkerTap != null
+                ? () => widget.onMarkerTap!(m)
+                : null,
+          ),
+        )
         .toSet();
 
     final polygons = widget.zones
@@ -45,9 +51,17 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
           (zone) => Polygon(
             polygonId: PolygonId(zone.id),
             points: zone.points.map((p) => LatLng(p.lat, p.lng)).toList(),
-            fillColor: _parseColor(zone.style?.fillColorHex, zone.style?.fillOpacity) ??
-                Colors.blue.withOpacity(0.2),
-            strokeColor: _parseColor(zone.style?.strokeColorHex, zone.style?.strokeOpacity) ??
+            fillColor:
+                _parseColor(
+                  zone.style?.fillColorHex,
+                  zone.style?.fillOpacity,
+                ) ??
+                Colors.blue.withValues(alpha: 0.2),
+            strokeColor:
+                _parseColor(
+                  zone.style?.strokeColorHex,
+                  zone.style?.strokeOpacity,
+                ) ??
                 Colors.blue,
             strokeWidth: (zone.style?.strokeWidth ?? 2).round(),
           ),
@@ -60,7 +74,11 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
           (zone) => Polyline(
             polylineId: PolylineId(zone.id),
             points: zone.points.map((p) => LatLng(p.lat, p.lng)).toList(),
-            color: _parseColor(zone.style?.strokeColorHex, zone.style?.strokeOpacity) ??
+            color:
+                _parseColor(
+                  zone.style?.strokeColorHex,
+                  zone.style?.strokeOpacity,
+                ) ??
                 Colors.blue,
             width: (zone.style?.strokeWidth ?? 2).round(),
           ),
@@ -104,7 +122,7 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
     }
     final baseColor = Color(value);
     if (opacity != null) {
-      return baseColor.withOpacity(opacity.clamp(0, 1));
+      return baseColor.withValues(alpha: opacity.clamp(0, 1));
     }
     return baseColor;
   }
