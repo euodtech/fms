@@ -20,13 +20,13 @@ class HttpErrorHandler {
       // Show snackbar using Flutter's SnackBar (not Get.snackbar)
       final context = Get.context;
       if (context != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Session expired. Please login again.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   const SnackBar(
+        //     content: Text('Session expired. Please login again.'),
+        //     backgroundColor: Colors.red,
+        //     duration: Duration(seconds: 2),
+        //   ),
+        // );
       }
     } catch (e) {
       // If AuthController not found, just log the error

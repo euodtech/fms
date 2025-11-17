@@ -37,7 +37,7 @@ class CancelJobDatasource {
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
       log(response.body, name: 'CancelJobDatasource', level: 1200);
-      
+
       // Try to parse error message from server response
       String errorMessage = 'Failed to cancel job';
       try {
@@ -48,10 +48,16 @@ class CancelJobDatasource {
           errorMessage = decoded['message'].toString();
         }
       } catch (_) {
-        // If parsing fails, use default message
+        errorMessage =
+            'Failed to cancel job'; // If parsing fails, use default message
       }
-      
-      throw Exception(errorMessage);
+      if (errorMessage.toLowerCase().contains(
+        'company subscription mismatch',
+      )) {
+        ApiClient.resetLogoutFlag();
+      }
+
+      return CancelJobResponseModel();
     }
   }
 }

@@ -8,10 +8,12 @@ class JobsGateTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // if (subscriptionService.hasJobsAccess) {
-    //   return const JobsPage();
-    // }
-    // return const UpgradeRequiredPage();
-    return const JobsPage();
+    //if pro, return Jobs page
+    //if basic, return Upgrade required page
+    if (subscriptionService.currentPlan == Plan.pro) {
+      return const JobsPage();
+    }
+    return const UpgradeRequiredPage();
+    // return const JobsPage();
   }
 }

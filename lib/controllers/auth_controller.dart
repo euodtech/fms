@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 import 'package:fms/core/constants/variables.dart';
 import 'package:fms/core/storage/secure_storage.dart';
 import 'package:fms/page/auth/presentation/login_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fms/core/services/subscription.dart';
 
 class AuthController extends GetxController {
   final RxBool isLoading = false.obs;
@@ -22,6 +24,14 @@ class AuthController extends GetxController {
       if (token != null && token.isNotEmpty) {
         apiKey.value = token;
         isAuthenticated.value = true;
+        
+        // Load CompanyType from SharedPreferences and update subscription service
+        final prefs = await SharedPreferences.getInstance();
+        final companyType = prefs.getInt(Variables.prefCompanyType);
+        if (companyType != null) {
+          subscriptionService.currentPlan = 
+              companyType == 2 ? Plan.pro : Plan.basic;
+        }
       } else {
         isAuthenticated.value = false;
       }

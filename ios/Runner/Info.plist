@@ -45,6 +45,14 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Notification permission description for iOS -->
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Aplikasi memerlukan izin untuk mengirim notifikasi tugas dan pembaruan.</string>
+	<key>NSPushNotificationsUsageDescription</key>
+	<string>Aplikasi memerlukan izin untuk menerima notifikasi push terkait pekerjaan.</string>
+	<!-- Disable Firebase Analytics -->
+	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+	<false/>
 	<!-- Photo Library permissions for image picking -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Aplikasi memerlukan akses ke Foto untuk mengunggah bukti pekerjaan.</string>

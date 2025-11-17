@@ -145,6 +145,11 @@ class JobsPage extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final job = controller.ongoingJobsResponse.value!.data![index];
+            final jobId = job.jobId;
+            final rescheduledDate = jobId != null
+                ? controller.rescheduledJobs[jobId]
+                : null;
+            final hasRescheduled = rescheduledDate != null;
             return JobSummaryCard(
               title: job.jobName ?? 'Untitled Job',
               customerName: job.customerName,
@@ -157,11 +162,18 @@ class JobsPage extends StatelessWidget {
                   color: accent,
                   icon: Icons.timelapse,
                 ),
+                if (rescheduledDate != null)
+                  _buildStatusBadge(
+                    label:
+                        'Rescheduled · ${DateFormat('dd MMM, HH:mm').format(rescheduledDate.toLocal())}',
+                    color: Colors.orange,
+                    icon: Icons.event_repeat,
+                  ),
               ],
               accentColor: accent,
               onTap: () => _openJobDetails(job, isOngoing: true),
               onDetails: () => _openJobDetails(job, isOngoing: true),
-              detailsLabel: 'Resume',
+              detailsLabel: hasRescheduled ? 'Details' : 'Resume',
             );
           },
         ),
@@ -268,7 +280,7 @@ class JobsPage extends StatelessWidget {
     if (result is Map && result['refresh'] == true) {
       final controller = Get.find<JobsController>();
       await controller.refresh();
-      
+
       // Navigate to ongoing tab if job was just accepted
       if (result['navigateToOngoing'] == true) {
         controller.tabController.animateTo(1); // Index 1 is Ongoing tab

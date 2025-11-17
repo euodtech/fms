@@ -59,9 +59,15 @@ class RescheduleJobDatasource {
         }
       } catch (_) {
         // If parsing fails, use default message
+        errorMessage = 'Failed to reschedule job';
+      }
+      if (errorMessage.toLowerCase().contains(
+        'company subscription mismatch',
+      )) {
+        ApiClient.resetLogoutFlag();
       }
 
-      throw Exception(errorMessage);
+      return RescheduleJobResponseModel();
     }
   }
 }

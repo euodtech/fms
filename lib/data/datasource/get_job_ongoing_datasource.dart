@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:fms/core/network/http_error_handler.dart';
@@ -15,11 +16,11 @@ class GetJobOngoingDatasource {
     final userId = prefs.getString(Variables.prefUserID);
 
     if (apiKey == null) {
-      throw Exception('API Key not found');
+      throw 'API Key not found';
     }
 
     if (userId == null) {
-      throw Exception('User ID not found');
+      throw 'User ID not found';
     }
 
     final endpoint = Variables.getOngoingJobEndpoint(userId);
@@ -27,7 +28,7 @@ class GetJobOngoingDatasource {
 
     final response = await ApiClient.get(uri);
     if (await SessionService.handleUnauthorizedResponse(prefs, response)) {
-      throw Exception('Unauthorized');
+      SessionService;
     }
     log(
       response.statusCode.toString(),
@@ -40,7 +41,24 @@ class GetJobOngoingDatasource {
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
       log(response.body, name: 'GetJobOngoingDatasource', level: 1200);
-      throw Exception('Failed to load ongoing jobs');
+      String errorMessage = 'Failed to load ongoing jobs';
+      try {
+        final decoded = json.decode(response.body) as Map<String, dynamic>;
+        if (decoded['Message'] != null) {
+          errorMessage = decoded['Message'].toString();
+        } else if (decoded['message'] != null) {
+          errorMessage = decoded['message'].toString();
+        }
+      } catch (_) {
+        errorMessage =
+            'Failed to load ongoing jobs'; // If parsing fails, use default message
+      }
+      if (errorMessage.toLowerCase().contains(
+        'company subscription mismatch',
+      )) {
+        ApiClient.resetLogoutFlag();
+      }
+      return GetJobResponseModel();
     }
   }
 }

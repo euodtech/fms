@@ -32,6 +32,10 @@ class HomeController extends GetxController {
   int get ongoingJobsCount => ongoingJobsResponse.value?.data?.length ?? 0;
   int get completedJobsCount => completedJobsResponse.value?.data?.length ?? 0;
 
+  Future<TraxrootObjectStatusModel?> getObjectWithSensors(int objectId) {
+    return _objectsDatasource.getObjectWithSensors(objectId: objectId);
+  }
+
   @override
   void onInit() {
     super.onInit();

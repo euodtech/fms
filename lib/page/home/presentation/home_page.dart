@@ -6,13 +6,15 @@ import 'package:fms/controllers/home_controller.dart';
 import 'package:fms/page/vehicles/presentation/vehicle_tracking_page.dart';
 import 'package:fms/core/services/subscription.dart';
 
+import '../../../core/models/geo.dart';
+
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(HomeController());
-    final isPro = subscriptionService.currentPlan == Plan.pro;
+    // final isPro = subscriptionService.currentPlan == Plan.pro;
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -35,7 +37,7 @@ class HomeTab extends StatelessWidget {
                 ],
               ),
               // Only show map for Pro users
-              if (isPro)
+              // if (isPro)
                 Expanded(
                   child: controller.isLoading.value
                       ? const Center(child: CircularProgressIndicator())
@@ -49,36 +51,36 @@ class HomeTab extends StatelessWidget {
                         ),
                 ),
               // For basic users, show upgrade message
-              if (!isPro)
-                Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.map_outlined,
-                          size: 80,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Map View',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Upgrade to Pro to access map view\nand vehicle tracking',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              // if (!isPro)
+              //   Expanded(
+              //     child: Center(
+              //       child: Column(
+              //         mainAxisAlignment: MainAxisAlignment.center,
+              //         children: [
+              //           Icon(
+              //             Icons.map_outlined,
+              //             size: 80,
+              //             color: Colors.grey.shade400,
+              //           ),
+              //           const SizedBox(height: 16),
+              //           Text(
+              //             'Map View',
+              //             style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              //               color: Colors.grey.shade700,
+              //             ),
+              //           ),
+              //           const SizedBox(height: 8),
+              //           Text(
+              //             'Upgrade to Pro to access map view\nand vehicle tracking',
+              //             textAlign: TextAlign.center,
+              //             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              //               color: Colors.grey.shade600,
+              //             ),
+              //           ),
+              //         ],
+              //       ),
+              //     ),
+              //   ),
               if (controller.error.value.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -88,8 +90,9 @@ class HomeTab extends StatelessWidget {
                   ),
                 ),
               ],
-              if (isPro) const SizedBox(height: 16),
-              if (!isPro) const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              // if (isPro) const SizedBox(height: 16),
+              // if (!isPro) const SizedBox(height: 8),
               Text('Overview', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Row(
@@ -123,13 +126,29 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  void _handleMarkerTap(
+  Future<void> _handleMarkerTap(
     BuildContext context,
     HomeController controller,
-    dynamic marker,
-  ) {
+    MapMarkerModel marker,
+  ) async {
     final status = controller.findStatusForMarker(marker);
     if (status == null) return;
+
+    // Fetch sensor data if object ID is available
+    var statusWithSensors = status;
+    if (status.id != null) {
+      try {
+        final withSensors = await controller.getObjectWithSensors(status.id!);
+        if (withSensors != null) {
+          statusWithSensors = withSensors;
+        }
+      } catch (e) {
+        print('Failed to fetch sensors: $e');
+        // Continue with status without sensors
+      }
+    }
+
+    if (!context.mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -137,15 +156,15 @@ class HomeTab extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (_) => ObjectStatusBottomSheet(
-        status: status,
-        onTrack: status.id != null
+        status: statusWithSensors,
+        onTrack: statusWithSensors.id != null
             ? () {
                 Get.back();
                 Get.to(
                   () => VehicleTrackingPage(
-                    vehicle: status,
-                    iconUrl: status.id != null
-                        ? controller.iconUrlByObjectId[status.id!]
+                    vehicle: statusWithSensors,
+                    iconUrl: statusWithSensors.id != null
+                        ? controller.iconUrlByObjectId[statusWithSensors.id!]
                         : null,
                   ),
                 );

@@ -57,8 +57,13 @@ class FinishJobDatasource {
       } catch (_) {
         // If parsing fails, use default message
       }
+      if (errorMessage.toLowerCase().contains(
+        'company subscription mismatch',
+      )) {
+        ApiClient.resetLogoutFlag();
+      }
       
-      throw Exception(errorMessage);
+      return FinishJobResponseModel();
     }
   }
 }

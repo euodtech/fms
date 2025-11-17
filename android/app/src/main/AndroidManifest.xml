@@ -2,19 +2,30 @@
     <!-- internet -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- storage -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- notifications (Android 13+) -->
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS"
+        android:required="false"/>
     <!-- location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <!-- camera -->
-    <!-- <uses-permission android:name="android.permission.CAMERA"/> -->
+    <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
         android:label="fms"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

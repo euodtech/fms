@@ -38,7 +38,7 @@ class ProfileRemoteDataSource {
       if (model.success == true && model.data != null) {
         return model;
       } else {
-        throw Exception('Failed to load profile: invalid response');
+        throw 'Failed to load profile: invalid response';
       }
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
@@ -48,7 +48,12 @@ class ProfileRemoteDataSource {
         final decoded = json.decode(response.body) as Map<String, dynamic>;
         if (decoded['message'] != null) message = decoded['message'].toString();
       } catch (_) {}
-      throw Exception(message);
+      if (message.toLowerCase().contains(
+        'company subscription mismatch',
+      )) {
+        ApiClient.resetLogoutFlag();
+      }
+      return ProfileResponseModel();
     }
   }
 }

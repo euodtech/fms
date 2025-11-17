@@ -3,10 +3,15 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'package:get/get.dart';
+
+import '../../../controllers/jobs_controller.dart';
 
 import '../../../core/permissions/permission_helper.dart';
 import '../../../data/datasource/cancel_job_datasource.dart';
@@ -32,11 +37,14 @@ class JobDetailsPage extends StatefulWidget {
 
 class _JobDetailsPageState extends State<JobDetailsPage> {
   final TextEditingController _cancelReasonController = TextEditingController();
-  final TextEditingController _rescheduleNotesController = TextEditingController();
+  final TextEditingController _rescheduleNotesController =
+      TextEditingController();
+  late final JobsController _jobsController;
 
   @override
   void initState() {
     super.initState();
+    _jobsController = Get.find<JobsController>();
   }
 
   @override
@@ -78,6 +86,13 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final textTheme = theme.textTheme;
     final job = widget.job;
     final isOngoing = widget.isOngoing;
+    final int? jobIdValue = job.jobId is int ? job.jobId as int : null;
+    final rescheduledDate = jobIdValue != null
+        ? _jobsController.rescheduledJobs[jobIdValue]
+        : null;
+    final hasRescheduled =
+        jobIdValue != null &&
+        _jobsController.rescheduledJobs.containsKey(jobIdValue);
 
     Widget buildPill(
       String label, {
@@ -326,6 +341,16 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                   foreground: Colors.white,
                                   background: Colors.white.withValues(
                                     alpha: 0.22,
+                                  ),
+                                  borderColor: Colors.white,
+                                ),
+                              if (rescheduledDate != null)
+                                buildPill(
+                                  'Rescheduled: ${DateFormat('EEE, dd MMM yyyy HH:mm').format(rescheduledDate.toLocal())}',
+                                  icon: Icons.event_repeat,
+                                  foreground: Colors.white,
+                                  background: Colors.orange.withValues(
+                                    alpha: 0.28,
                                   ),
                                   borderColor: Colors.white,
                                 ),
@@ -591,32 +616,41 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
               if (isOngoing) const SizedBox(height: 12),
               Row(
                 children: [
-                  if (isOngoing) Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        _cancelJob(context);
-                      },
-                      icon: const Icon(Icons.cancel_outlined),
-                      label: const Text('Cancel'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                  if (isOngoing)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: hasRescheduled
+                            ? null
+                            : () {
+                                _cancelJob(context);
+                              },
+                        icon: const Icon(Icons.cancel_outlined),
+                        label: const Text('Cancel'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          side: BorderSide(
+                            color: colorScheme.error.withValues(alpha: 0.35),
+                          ),
+                          foregroundColor: colorScheme.error,
+                          overlayColor: colorScheme.error.withValues(
+                            alpha: 0.08,
+                          ),
                         ),
-                        side: BorderSide(
-                          color: colorScheme.error.withValues(alpha: 0.35),
-                        ),
-                        foregroundColor: colorScheme.error,
-                        overlayColor: colorScheme.error.withValues(alpha: 0.08),
                       ),
                     ),
-                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        isOngoing ? _finishJob(context) : _startJob(context);
-                      },
+                      onPressed: isOngoing && hasRescheduled
+                          ? null
+                          : () {
+                              isOngoing
+                                  ? _finishJob(context)
+                                  : _startJob(context);
+                            },
                       icon: const Icon(Icons.play_arrow_rounded),
                       label: Text(isOngoing ? 'Finish Job' : 'Start Job'),
                       style: ElevatedButton.styleFrom(
@@ -730,20 +764,17 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       if (context.mounted) {
         log('Failed to start job: ${e.toString()}');
         Navigator.of(context).pop(); // close loading
-        
+
         // Extract error message from exception
         String errorMessage = 'Failed to start job';
         final exceptionMessage = e.toString();
         if (exceptionMessage.startsWith('Exception: ')) {
           errorMessage = exceptionMessage.substring('Exception: '.length);
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              errorMessage,
-              style: TextStyle(color: Colors.white),
-            ),
+            content: Text(errorMessage, style: TextStyle(color: Colors.white)),
             backgroundColor: Colors.red,
           ),
         );
@@ -753,10 +784,25 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
 
   Future<void> _finishJob(BuildContext context) async {
     final jobId = widget.job.jobId as int?;
+
     if (jobId == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Job ID not found')));
+      return;
+    }
+
+    if (_jobsController.rescheduledJobs.containsKey(jobId)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Job already rescheduled. Finish action disabled.',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
@@ -834,21 +880,16 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       if (context.mounted) {
         log(e.toString());
         Navigator.of(context).pop();
-        
+
         // Extract error message from exception
         String errorMessage = 'Failed to finish job';
         final exceptionMessage = e.toString();
         if (exceptionMessage.startsWith('Exception: ')) {
           errorMessage = exceptionMessage.substring('Exception: '.length);
         }
-        
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-          ),
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       }
     }
@@ -1161,7 +1202,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                     children: [
                       // Header
                       Text(
-                        'Think About\nRescheduling',
+                        'Reschedule Job',
                         textAlign: TextAlign.center,
                         style: textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w700,
@@ -1206,15 +1247,18 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          DateFormat('EEE MMM d')
-                                              .format(selectedDate),
+                                          DateFormat(
+                                            'EEE MMM d',
+                                          ).format(selectedDate),
                                           style: textTheme.bodyLarge?.copyWith(
                                             fontWeight: FontWeight.w600,
                                             color: colorScheme.primary,
                                           ),
                                         ),
                                         Text(
-                                          DateFormat('yyyy').format(selectedDate),
+                                          DateFormat(
+                                            'yyyy',
+                                          ).format(selectedDate),
                                           style: textTheme.bodySmall?.copyWith(
                                             color: colorScheme.onSurfaceVariant,
                                           ),
@@ -1307,8 +1351,9 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                               onPressed: () =>
                                   Navigator.of(dialogContext).pop(null),
                               style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -1342,8 +1387,9 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                 });
                               },
                               style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -1399,7 +1445,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       Navigator.of(context).pop(); // Close loading
 
       final success = response.success == true;
-      final message = response.message ??
+      final message =
+          response.message ??
           (success ? 'Job rescheduled successfully' : 'Failed to reschedule');
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1410,7 +1457,11 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       );
 
       if (success) {
-        Navigator.pop(context, true);
+        _jobsController.markJobRescheduled(jobId, scheduledDate);
+        if (mounted) {
+          setState(() {});
+        }
+        return;
       }
     } catch (e) {
       if (!mounted) return;
@@ -1424,40 +1475,48 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         errorMessage = exceptionMessage.substring('Exception: '.length);
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            errorMessage,
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      SnackbarUtils(
+        text: errorMessage,
+        backgroundColor: Colors.red,
+      ).showErrorSnackBar(context);
     }
   }
 
   Future<void> _cancelJob(BuildContext context) async {
     final jobId = widget.job.jobId as int?;
+
     if (jobId == null) {
+      SnackbarUtils(
+        text: 'Job ID not found',
+        backgroundColor: Colors.red,
+      ).showErrorSnackBar(context);
+      return;
+    }
+
+    if (_jobsController.rescheduledJobs.containsKey(jobId)) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Job ID not found',
+            'Job already rescheduled. Cancellation disabled.',
             style: TextStyle(color: Colors.white),
           ),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.orange,
         ),
       );
       return;
     }
-
     // First, show reschedule dialog
     await _showRescheduleDialog(context);
-    
+
     // If user returns from reschedule dialog without rescheduling,
     // they might want to proceed with cancel
     if (!mounted) return;
-    
+
+    if (!mounted || _jobsController.rescheduledJobs.containsKey(jobId)) {
+      return;
+    }
+
     // Ask for confirmation to cancel
     final confirmed =
         await showDialog<bool>(
@@ -1486,15 +1545,10 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final reason = await _askCancelReason(context);
     if (!mounted) return;
     if (reason == null || reason.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please provide a reason',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      SnackbarUtils(
+        text: 'Please provide a reason',
+        backgroundColor: Colors.red,
+      ).showErrorSnackBar(context);
       return;
     }
 
@@ -1534,15 +1588,10 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       if (!mounted) return;
       log('Failed to cancel job: ${e.toString()}');
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Failed to cancel job',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      SnackbarUtils(
+        text: 'Failed to cancel job',
+        backgroundColor: Colors.red,
+      ).showErrorSnackBar(context);
     }
   }
 
@@ -1568,9 +1617,10 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final objectId = _extractJobId();
     if (objectId == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Job ID not found')));
+      SnackbarUtils(
+        text: 'Job ID not found',
+        backgroundColor: Colors.red,
+      ).showErrorSnackBar(context);
       return;
     }
 
@@ -1610,15 +1660,10 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       if (!mounted) return;
       log('Failed to open navigation: ${e.toString()}');
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to open navigation',
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      SnackbarUtils(
+        text: 'Failed to open navigation',
+        backgroundColor: Colors.red,
+      ).showErrorSnackBar(context);
     }
   }
 

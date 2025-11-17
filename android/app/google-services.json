@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "716521928282",
+    "project_id": "fms-fcm",
+    "storage_bucket": "fms-fcm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:716521928282:android:58505cab4cb5f971a20a63",
+        "android_client_info": {
+          "package_name": "com.querta.fms"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCh17SzaWpJB3I5sJDKBQtIWMnsMjxnj-Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

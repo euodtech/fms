@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/core/constants/variables.dart';
@@ -86,14 +87,18 @@ class ApiClient {
       // Show message and redirect to login
       final context = Get.context;
       if (context != null && context.mounted) {
-        Get.snackbar(
-          'Subscription Mismatch',
-          'Your subscription type has changed. Please login again.',
-          //snackPosition: SnackPosition.BOTTOM,
+        SnackbarUtils(
+          text: 'Subscription Mismatch',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3),
-        );
+        ).showErrorSnackBar(context);
+        // Get.snackbar(
+        //   'Subscription Mismatch',
+        //   'Your subscription type has changed. Please login again.',
+        //   //snackPosition: SnackPosition.BOTTOM,
+        //   backgroundColor: Colors.red,
+        //   colorText: Colors.white,
+        //   duration: const Duration(seconds: 3),
+        // );
       }
 
       // Redirect to login page

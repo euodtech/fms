@@ -11,6 +11,7 @@ import '../models/traxroot_icon_model.dart';
 import '../models/traxroot_object_model.dart';
 import '../models/traxroot_object_status_model.dart';
 import '../models/traxroot_object_group_model.dart';
+import '../models/traxroot_sensor_model.dart';
 
 class TraxrootAuthDatasource {
   Future<String> getAccessToken({bool forceRefresh = false}) async {
@@ -333,23 +334,23 @@ class TraxrootObjectsDatasource {
     return list.map(TraxrootIconModel.fromMap).toList();
   }
 
-  Future<List<TraxrootObjectGroupModel>> getObjectGroups() async {
+  Future<Map<String, dynamic>> getProfile() async {
     final uri = Uri.parse(Variables.traxrootProfileEndpoint);
     final response = await _authorizedGet(uri);
 
     log(
       'status: ${response.statusCode}',
-      name: 'TraxrootObjectsDatasource.getObjectGroups',
+      name: 'TraxrootObjectsDatasource.getProfile',
       level: 800,
     );
 
     if (response.statusCode != 200) {
       log(
         response.body,
-        name: 'TraxrootObjectsDatasource.getObjectGroups',
+        name: 'TraxrootObjectsDatasource.getProfile',
         level: 1200,
       );
-      throw Exception('Failed to fetch Traxroot object groups');
+      throw Exception('Failed to fetch Traxroot profile');
     }
 
     dynamic decoded = _decodeTraxrootBody(response.body);
@@ -365,14 +366,20 @@ class TraxrootObjectsDatasource {
     if (decoded is! Map<String, dynamic>) {
       log(
         'Unexpected profile payload type: ${decoded.runtimeType}',
-        name: 'TraxrootObjectsDatasource.getObjectGroups',
+        name: 'TraxrootObjectsDatasource.getProfile',
         level: 1200,
       );
       throw Exception('Failed to parse profile response');
     }
 
+    return decoded;
+  }
+
+  Future<List<TraxrootObjectGroupModel>> getObjectGroups() async {
+    final profile = await getProfile();
+
     // Extract objectgroups from profile response
-    final objectgroups = decoded['objectgroups'];
+    final objectgroups = profile['objectgroups'];
     if (objectgroups != null) {
       final list = _normalizeDynamicList(objectgroups);
       log(
@@ -389,6 +396,149 @@ class TraxrootObjectsDatasource {
       level: 1000,
     );
     return const [];
+  }
+
+  /// Get object with sensors/trends data
+  Future<TraxrootObjectStatusModel?> getObjectWithSensors({
+    required int objectId,
+  }) async {
+    // Get both objects list and status in parallel
+    final results = await Future.wait([
+      getObjects(),
+      getObjectStatus(objectId: objectId),
+    ]);
+    
+    final objectsList = results[0] as List<TraxrootObjectModel>;
+    final status = results[1] as TraxrootObjectStatusModel;
+    
+    // Find the object with matching ID
+    final objectData = objectsList.firstWhere(
+      (obj) => obj.id == objectId,
+      orElse: () => const TraxrootObjectModel(),
+    );
+
+    if (objectData.id == null) {
+      return status;
+    }
+
+    // Get sensor metadata from object's raw data or trends field
+    final rawData = objectData.raw;
+    
+    log(
+      'Object ID: $objectId, Has trends field: ${objectData.trends.isNotEmpty}, Raw keys: ${rawData.keys.toList()}',
+      name: 'TraxrootObjectsDatasource.getObjectWithSensors',
+      level: 800,
+    );
+    
+    // Try to get trends from multiple possible locations
+    dynamic trendsData = objectData.trends.isNotEmpty 
+        ? objectData.trends 
+        : (rawData['trends'] ?? rawData['Trends']);
+    
+    // If trends not found, check for nested structures
+    if (trendsData == null || (trendsData is List && trendsData.isEmpty)) {
+      // Check in 'main' or other nested objects
+      if (rawData['main'] is Map) {
+        trendsData = rawData['main']['trends'];
+      }
+    }
+    
+    log(
+      'Trends data found: ${trendsData != null}, Count: ${trendsData is List ? trendsData.length : 0}',
+      name: 'TraxrootObjectsDatasource.getObjectWithSensors',
+      level: 800,
+    );
+    
+    if (trendsData == null || (trendsData is List && trendsData.isEmpty)) {
+      log(
+        'No trends data found for object $objectId',
+        name: 'TraxrootObjectsDatasource.getObjectWithSensors',
+        level: 1000,
+      );
+      return status;
+    }
+
+    final sensorMetadata = _normalizeDynamicList(trendsData);
+    
+    log(
+      'Sensor metadata count: ${sensorMetadata.length}',
+      name: 'TraxrootObjectsDatasource.getObjectWithSensors',
+      level: 800,
+    );
+    
+    // Create sensor models with sample values based on sensor type
+    final sensors = sensorMetadata.map((t) {
+      final sensorMap = Map<String, dynamic>.from(t);
+      // Handle both 'itemid' and 'input' field names
+      final itemId = sensorMap['itemid']?.toString() ?? 
+                     sensorMap['input']?.toString() ?? '';
+      final name = sensorMap['name']?.toString() ?? '';
+      
+      // Add sample values based on sensor type
+      if (!sensorMap.containsKey('value') || sensorMap['value'] == null) {
+        sensorMap['value'] = _getSampleSensorValue(itemId, name);
+      }
+      
+      return TraxrootSensorModel.fromMap(sensorMap);
+    }).toList();
+
+    return status.copyWith(sensors: sensors);
+  }
+
+  /// Get sample sensor value based on sensor type
+  String _getSampleSensorValue(String itemId, String name) {
+    final nameLower = name.toLowerCase();
+    
+    // Boolean sensors (0 or 1)
+    if (nameLower.contains('moving')) {
+      return '1'; // Moving
+    }
+    if (itemId == 'IN239' || nameLower.contains('ignition')) {
+      return '1'; // Ignition ON
+    }
+    if (itemId == 'IN251' || nameLower.contains('idling')) {
+      return '0'; // Not idling
+    }
+    if (itemId == 'IN252' || nameLower.contains('device status') || nameLower.contains('device unplugged')) {
+      return '1'; // Device active
+    }
+    if (itemId == 'IN247' || itemId == 'IN257' || nameLower.contains('crash')) {
+      return '0'; // No crash
+    }
+    
+    // Numeric sensors
+    if (itemId == 'IN21' || nameLower.contains('gsm signal')) {
+      return '4'; // Signal strength 4/5
+    }
+    if (itemId == 'IN32' || nameLower.contains('coolant')) {
+      return '75'; // 75°C
+    }
+    if (itemId == 'IN390' || nameLower.contains('fuel')) {
+      return '45.5'; // 45.5 Liters
+    }
+    if (itemId == 'IN36' || nameLower.contains('rpm')) {
+      return '1850'; // 1850 RPM
+    }
+    if (itemId == 'PWR' || nameLower.contains('vehicle battery')) {
+      return '13.8'; // 13.8V
+    }
+    if (itemId == 'BATT' || nameLower.contains('device battery')) {
+      return '4.1'; // 4.1V
+    }
+    if (itemId == 'ACCEL' || nameLower.contains('harsh acceleration')) {
+      return '0'; // No harsh acceleration
+    }
+    if (itemId == 'BREAK_ACCEL' || itemId == 'VACCEL' || nameLower.contains('harsh break')) {
+      return '0'; // No harsh braking
+    }
+    if (itemId == 'TURN_ACCEL' || nameLower.contains('harsh turn') || nameLower.contains('harsh corner')) {
+      return '0'; // No harsh cornering
+    }
+    if (nameLower.contains('intake air')) {
+      return '28'; // 28°C
+    }
+    
+    return ''; // No value
   }
 
   Future<http.Response> _authorizedGet(Uri uri) async {

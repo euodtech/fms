@@ -7,7 +7,9 @@ import 'package:fms/data/models/response/auth_response_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Note: Auth endpoints use http directly, not ApiClient, 
+import '../../core/network/api_client.dart';
+
+// Note: Auth endpoints use http directly, not ApiClient,
 // because company validation is not needed for login/logout
 class AuthRemoteDataSource {
   Future<AuthResponseModel> login({
@@ -79,7 +81,11 @@ class AuthRemoteDataSource {
       } catch (_) {}
       return 'Reset password email sent.';
     } else {
-      log(response.body, name: 'AuthRemoteDataSource.forgotPassword', level: 1200);
+      log(
+        response.body,
+        name: 'AuthRemoteDataSource.forgotPassword',
+        level: 1200,
+      );
       String message = 'Failed to send reset password (${response.statusCode})';
       try {
         final decoded = json.decode(response.body) as Map<String, dynamic>;
@@ -93,7 +99,60 @@ class AuthRemoteDataSource {
   Future<String> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-    log('All shared preferences cleared', name: 'AuthRemoteDataSource', level: 800);
+    log(
+      'All shared preferences cleared',
+      name: 'AuthRemoteDataSource',
+      level: 800,
+    );
     return 'Logout successful';
+  }
+
+  Future<void> updateFcmToken(String fcmToken) async {
+    final prefs = await SharedPreferences.getInstance();
+    final apiKey = prefs.getString(Variables.prefApiKey);
+
+    if (apiKey == null) {
+      throw Exception('API Key not found');
+    }
+    final url = Uri.parse(
+      '${Variables.baseUrl}/api/update-fcm-token',
+    ).replace(queryParameters: {'x-key': apiKey});
+    final response = await http.post(
+      url,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'fcm_token': fcmToken}),
+    );
+    log(
+      response.statusCode.toString(),
+      name: 'AuthRemoteDataSource.updateFcmToken',
+      level: 800,
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    } else {
+      HttpErrorHandler.handleResponse(response.statusCode, response.body);
+      log(response.body, name: 'GetJobDatasource', level: 1200);
+      String errorMessage = 'Failed to load data';
+      try {
+        final decoded = json.decode(response.body) as Map<String, dynamic>;
+        if (decoded['Message'] != null) {
+          errorMessage = decoded['Message'].toString();
+        } else if (decoded['message'] != null) {
+          errorMessage = decoded['message'].toString();
+        }
+      } catch (_) {
+        errorMessage = 'Failed to cancel job';
+      }
+      if (errorMessage.toLowerCase().contains(
+        'company subscription mismatch',
+      )) {
+        ApiClient.resetLogoutFlag();
+      }
+
+      return;
+    }
   }
 }

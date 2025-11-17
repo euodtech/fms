@@ -92,8 +92,8 @@ class VehiclesController extends GetxController {
       }
       groupIdToName.value = groupMapping;
       
-      log('Object groups count: ${objectGroups.length}', name: 'VehiclesController.loadData');
-      log('Group mapping: $groupMapping', name: 'VehiclesController.loadData');
+      // log('Object groups count: ${objectGroups.length}', name: 'VehiclesController.loadData');
+      // log('Group mapping: $groupMapping', name: 'VehiclesController.loadData');
       
       // Build group list with counts from groups field
       final groupCountMap = <String, int>{};
@@ -130,8 +130,8 @@ class VehiclesController extends GetxController {
       
       final groups = groupCountMap.keys.toList()..sort();
       
-      log('Group count map: $groupCountMap', name: 'VehiclesController.loadData');
-      log('Available groups: $groups', name: 'VehiclesController.loadData');
+      // log('Group count map: $groupCountMap', name: 'VehiclesController.loadData');
+      // log('Available groups: $groups', name: 'VehiclesController.loadData');
       
       availableGroups.value = groups;
       groupCounts.value = groupCountMap;
@@ -184,7 +184,10 @@ class VehiclesController extends GetxController {
 
     TraxrootObjectStatusModel? status;
     try {
-      status = await _objectsDatasource.getLatestPoint(objectId: objectId);
+      // Fetch object with sensors for complete information
+      status = await _objectsDatasource.getObjectWithSensors(objectId: objectId);
+      // Fallback to regular status if sensor fetch fails
+      status ??= await _objectsDatasource.getLatestPoint(objectId: objectId);
     } catch (e) {
       Get.snackbar(
         'Error',

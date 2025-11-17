@@ -4,8 +4,12 @@ import 'package:fms/core/theme/app_theme.dart';
 import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:fms/nav_bar.dart';
 import 'package:fms/controllers/auth_controller.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // Initialize controllers
   Get.put(AuthController());
   runApp(const MyApp());
@@ -31,15 +35,13 @@ class RootGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authController = Get.find<AuthController>();
-    
+
     return Obx(() {
       if (authController.isLoading.value) {
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      return authController.isAuthenticated.value 
-          ? const NavBar() 
+      return authController.isAuthenticated.value
+          ? const NavBar()
           : const LoginPage();
     });
   }

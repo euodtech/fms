@@ -50,7 +50,9 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
     });
 
     try {
-      final latest = await _objectsDatasource.getObjectStatus(objectId: id);
+      // Try to get object with sensors first, fallback to regular status
+      final latest = await _objectsDatasource.getObjectWithSensors(objectId: id)
+          .catchError((_) => _objectsDatasource.getObjectStatus(objectId: id));
       if (!mounted) return;
       setState(() {
         _vehicle = latest;

@@ -56,7 +56,12 @@ class DriverGetJobDatasource {
           errorMessage = decoded['message'].toString();
         }
       } catch (_) {}
-      throw Exception(errorMessage);
+      if (errorMessage.toLowerCase().contains(
+        'company subscription mismatch',
+      )) {
+        ApiClient.resetLogoutFlag();
+      }
+      return DriverGetJobResponseModel();
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:fms/nav_bar.dart';
 import 'package:fms/core/constants/variables.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
@@ -56,37 +57,41 @@ class _LoginPageState extends State<LoginPage> {
       final companyId = res.data?.companyId;
       final companyType = res.data?.companyType;
       final companyLabel = res.data?.companyLabel;
-      
+
       if (apiKey == null || apiKey.isEmpty) {
         throw Exception('Error fetch data');
       }
-      
+
       // Save all data to SharedPreferences
       await prefs.setString(Variables.prefApiKey, apiKey);
       log(userID.toString(), name: 'Login', level: 800);
-      
+
       if (userID != null && userID.toString().isNotEmpty) {
         await prefs.setString(Variables.prefUserID, userID.toString());
       }
-      
+
       if (company != null) {
         await prefs.setString(Variables.prefCompany, company);
       }
-      
+
       if (companyId != null) {
         await prefs.setInt(Variables.prefCompanyID, companyId);
       }
-      
+
       if (companyType != null) {
         await prefs.setInt(Variables.prefCompanyType, companyType);
         // Initialize subscription service based on company type
         // 1 = basic, 2 = pro
-        subscriptionService.currentPlan = 
-            companyType == 2 ? Plan.pro : Plan.basic;
-        log('Company type: $companyType, Plan: ${subscriptionService.currentPlan}',
-            name: 'Login', level: 800);
+        subscriptionService.currentPlan = companyType == 2
+            ? Plan.pro
+            : Plan.basic;
+        log(
+          'Company type: $companyType, Plan: ${subscriptionService.currentPlan}',
+          name: 'Login',
+          level: 800,
+        );
       }
-      
+
       if (companyLabel != null) {
         await prefs.setString(Variables.prefCompanyLabel, companyLabel);
       }
@@ -95,6 +100,10 @@ class _LoginPageState extends State<LoginPage> {
       ApiClient.resetLogoutFlag();
 
       if (!mounted) return;
+      SnackbarUtils(
+        text: 'Login Success',
+        backgroundColor: Colors.green,
+      ).showSuccessSnackBar(context);
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const NavBar()),
         (route) => false,
@@ -107,13 +116,8 @@ class _LoginPageState extends State<LoginPage> {
       if (exceptionMessage.startsWith('Exception: ')) {
         errorMessage = exceptionMessage.substring('Exception: '.length);
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);

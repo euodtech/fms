@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:fms/core/network/http_error_handler.dart';
@@ -26,7 +27,7 @@ class GetJobHistoryDatasource {
     final uri = Uri.parse(endpoint).replace(queryParameters: {'x-key': apiKey});
     final response = await ApiClient.get(uri);
     if (await SessionService.handleUnauthorizedResponse(prefs, response)) {
-      throw Exception('Unauthorized');
+      SessionService;
     }
     log(
       response.statusCode.toString(),
@@ -40,7 +41,24 @@ class GetJobHistoryDatasource {
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
       log(response.body, name: 'GetJobHistoryDatasource', level: 1200);
-      throw Exception('Failed to load data');
+      String errorMessage = 'Failed to load data';
+      try {
+        final decoded = json.decode(response.body) as Map<String, dynamic>;
+        if (decoded['Message'] != null) {
+          errorMessage = decoded['Message'].toString();
+        } else if (decoded['message'] != null) {
+          errorMessage = decoded['message'].toString();
+        }
+      } catch (_) {
+        errorMessage =
+            'Failed to load data'; // If parsing fails, use default message
+      }
+      if (errorMessage.toLowerCase().contains(
+        'company subscription mismatch',
+      )) {
+        ApiClient.resetLogoutFlag();
+      }
+      return GetJobHistoryResponseModel();
     }
   }
 }

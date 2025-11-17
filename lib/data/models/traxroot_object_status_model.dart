@@ -1,4 +1,5 @@
 import 'package:fms/core/models/geo.dart';
+import 'package:fms/data/models/traxroot_sensor_model.dart';
 
 class TraxrootObjectStatusModel {
   final int? id;
@@ -15,6 +16,7 @@ class TraxrootObjectStatusModel {
   final int? satellites;
   final double? accuracy;
   final int? iconId;
+  final List<TraxrootSensorModel>? sensors;
 
   const TraxrootObjectStatusModel({
     this.id,
@@ -31,6 +33,7 @@ class TraxrootObjectStatusModel {
     this.satellites,
     this.accuracy,
     this.iconId,
+    this.sensors,
   });
 
   GeoPoint? get geoPoint =>
@@ -70,6 +73,7 @@ class TraxrootObjectStatusModel {
     int? satellites,
     double? accuracy,
     int? iconId,
+    List<TraxrootSensorModel>? sensors,
   }) {
     return TraxrootObjectStatusModel(
       id: id ?? this.id,
@@ -86,6 +90,7 @@ class TraxrootObjectStatusModel {
       satellites: satellites ?? this.satellites,
       accuracy: accuracy ?? this.accuracy,
       iconId: iconId ?? this.iconId,
+      sensors: sensors ?? this.sensors,
     );
   }
 
@@ -143,6 +148,17 @@ class TraxrootObjectStatusModel {
       return value.toString();
     }
 
+    List<TraxrootSensorModel>? _parseSensors(dynamic value) {
+      if (value == null) return null;
+      if (value is List) {
+        return value
+            .where((item) => item is Map)
+            .map((item) => TraxrootSensorModel.fromMap(Map<String, dynamic>.from(item as Map)))
+            .toList();
+      }
+      return null;
+    }
+
     return TraxrootObjectStatusModel(
       // Only treat actual object id fields as id to avoid mismatching with tracker id
       id: _parseInt(
@@ -172,6 +188,7 @@ class TraxrootObjectStatusModel {
             map['iconid'] ??
             map['icon_id'],
       ),
+      sensors: _parseSensors(map['trends'] ?? map['Trends'] ?? map['sensors'] ?? map['Sensors']),
     );
   }
 }
