@@ -223,9 +223,9 @@ class _HomeTabState extends State<HomeTab> {
                 Text(
                   'Upgrade to Pro to access Job',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
                 ),
               ],
             ],

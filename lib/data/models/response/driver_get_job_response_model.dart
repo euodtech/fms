@@ -17,8 +17,5 @@ class DriverGetJobResponseModel {
         message: json['Message'],
       );
 
-  Map<String, dynamic> toMap() => {
-        'Success': success,
-        'Message': message,
-      };
+  Map<String, dynamic> toMap() => {'Success': success, 'Message': message};
 }

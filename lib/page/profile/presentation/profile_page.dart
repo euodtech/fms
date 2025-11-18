@@ -185,8 +185,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ),
                                   (route) => false,
                                 );
-                              }
-                              else {
+                              } else {
                                 SnackbarUtils(
                                   text: 'Logout failed',
                                   backgroundColor: Colors.red,

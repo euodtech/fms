@@ -77,14 +77,19 @@ class TraxrootGeozoneModel {
     }
 
     final typeString = style?.type?.toLowerCase() ?? 'polygon';
-    final zoneType = typeString == 'polyline' ? MapZoneType.polyline : MapZoneType.polygon;
+    final zoneType = typeString == 'polyline'
+        ? MapZoneType.polyline
+        : MapZoneType.polygon;
     final minimumPoints = zoneType == MapZoneType.polyline ? 2 : 3;
     if (pointsList.length < minimumPoints) {
       return null;
     }
 
-    final zoneId = id?.toString() ??
-        (name != null && name!.isNotEmpty ? name! : 'zone-${DateTime.now().microsecondsSinceEpoch}');
+    final zoneId =
+        id?.toString() ??
+        (name != null && name!.isNotEmpty
+            ? name!
+            : 'zone-${DateTime.now().microsecondsSinceEpoch}');
 
     return MapZoneModel(
       id: zoneId,

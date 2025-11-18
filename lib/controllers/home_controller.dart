@@ -8,25 +8,37 @@ import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/response/get_job_response_model.dart';
 import 'package:fms/data/models/traxroot_icon_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
-import 'package:fms/data/models/response/get_job_history__response_model.dart' as history;
+import 'package:fms/data/models/response/get_job_history__response_model.dart'
+    as history;
 
 class HomeController extends GetxController {
-  final _objectsDatasource = TraxrootObjectsDatasource(TraxrootAuthDatasource());
+  final _objectsDatasource = TraxrootObjectsDatasource(
+    TraxrootAuthDatasource(),
+  );
   final _internalDatasource = TraxrootInternalDatasource();
 
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
   final RxList<MapMarkerModel> markers = <MapMarkerModel>[].obs;
   final RxList<MapZoneModel> zones = <MapZoneModel>[].obs;
-  final RxList<TraxrootObjectStatusModel> objects = <TraxrootObjectStatusModel>[].obs;
+  final RxList<TraxrootObjectStatusModel> objects =
+      <TraxrootObjectStatusModel>[].obs;
   final RxMap<int, String> iconUrlByObjectId = <int, String>{}.obs;
-  final Rx<GetJobResponseModel?> allJobsResponse = Rx<GetJobResponseModel?>(null);
-  final Rx<GetJobResponseModel?> ongoingJobsResponse = Rx<GetJobResponseModel?>(null);
-  final Rx<history.GetJobHistoryResponseModel?> completedJobsResponse = Rx<history.GetJobHistoryResponseModel?>(null);
+  final Rx<GetJobResponseModel?> allJobsResponse = Rx<GetJobResponseModel?>(
+    null,
+  );
+  final Rx<GetJobResponseModel?> ongoingJobsResponse = Rx<GetJobResponseModel?>(
+    null,
+  );
+  final Rx<history.GetJobHistoryResponseModel?> completedJobsResponse =
+      Rx<history.GetJobHistoryResponseModel?>(null);
 
-  static const GeoPoint defaultCenter = GeoPoint(14.5995, 120.9842); // Manila fallback
+  static const GeoPoint defaultCenter = GeoPoint(
+    14.5995,
+    120.9842,
+  ); // Manila fallback
 
-  GeoPoint get mapCenter => defaultCenter;  
+  GeoPoint get mapCenter => defaultCenter;
 
   int get openJobsCount => allJobsResponse.value?.data?.length ?? 0;
   int get ongoingJobsCount => ongoingJobsResponse.value?.data?.length ?? 0;
@@ -66,14 +78,15 @@ class HomeController extends GetxController {
           .where((obj) => obj.id != null)
           .map((obj) => obj.id!)
           .toList();
-      
+
       // Fetch all statuses in parallel
-      final statusFutures = objectIds.map((id) => 
-        _objectsDatasource.getLatestPoint(objectId: id)
-            .catchError((_) => null)
+      final statusFutures = objectIds.map(
+        (id) => _objectsDatasource
+            .getLatestPoint(objectId: id)
+            .catchError((_) => null),
       );
       final allStatuses = await Future.wait(statusFutures);
-      
+
       // Build status map by object ID
       final statusByObjectId = <int, TraxrootObjectStatusModel>{};
       for (var i = 0; i < objectIds.length; i++) {
@@ -92,14 +105,14 @@ class HomeController extends GetxController {
       final iconUrlByObjectName = <String, String>{};
       final iconUrlByTrackerId = <String, String>{};
       final trackersByObject = <int, Set<String>>{};
-      
+
       for (final object in objectsData) {
         final objectId = object.id;
         if (objectId == null) continue;
-        
+
         final iconId = object.iconId;
         if (iconId == null) continue;
-        
+
         final iconUrl = iconsById[iconId]?.url;
         if (iconUrl != null && iconUrl.isNotEmpty) {
           iconUrlMap[objectId] = iconUrl;
@@ -107,7 +120,7 @@ class HomeController extends GetxController {
           if (name != null && name.isNotEmpty) {
             iconUrlByObjectName[name] = iconUrl;
           }
-          
+
           void collectTrackers(dynamic node) {
             if (node is Map) {
               for (final entry in node.entries) {
@@ -117,7 +130,9 @@ class HomeController extends GetxController {
                   final text = value?.toString().trim();
                   if (text != null && text.isNotEmpty) {
                     iconUrlByTrackerId.putIfAbsent(text, () => iconUrl);
-                    trackersByObject.putIfAbsent(objectId, () => <String>{}).add(text);
+                    trackersByObject
+                        .putIfAbsent(objectId, () => <String>{})
+                        .add(text);
                   }
                 }
                 collectTrackers(value);
@@ -128,6 +143,7 @@ class HomeController extends GetxController {
               }
             }
           }
+
           collectTrackers(object.raw);
         }
       }
@@ -136,15 +152,17 @@ class HomeController extends GetxController {
       final markersList = <MapMarkerModel>[];
       final usedIconUrls = <String>{};
       final statusList = <TraxrootObjectStatusModel>[];
-      
+
       for (final object in objectsData) {
         final objectId = object.id;
         if (objectId == null) continue;
-        
+
         final objectName = object.name;
         final objectIconId = object.iconId;
-        final iconUrl = objectIconId != null ? iconsById[objectIconId]?.url : null;
-        
+        final iconUrl = objectIconId != null
+            ? iconsById[objectIconId]?.url
+            : null;
+
         if (iconUrl != null && iconUrl.isNotEmpty) {
           usedIconUrls.add(iconUrl);
         }
@@ -234,11 +252,12 @@ class HomeController extends GetxController {
     if (data is TraxrootObjectStatusModel) {
       return data;
     }
-    
+
     try {
       return objects.firstWhere(
-        (obj) => obj.geoPoint?.lat == marker.position.lat && 
-                 obj.geoPoint?.lng == marker.position.lng,
+        (obj) =>
+            obj.geoPoint?.lat == marker.position.lat &&
+            obj.geoPoint?.lng == marker.position.lng,
       );
     } catch (_) {
       return null;

@@ -19,10 +19,7 @@ class UpgradeRequiredPage extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {},
-              child: const Text('Upgrade Plan'),
-            )
+            FilledButton(onPressed: () {}, child: const Text('Upgrade Plan')),
           ],
         ),
       ),

@@ -22,15 +22,13 @@ class DriverGetJobDatasource {
       throw Exception('User ID not found');
     }
 
-    final uri = Uri.parse(Variables.driverGetJobEndpoint)
-        .replace(queryParameters: {'x-key': apiKey});
+    final uri = Uri.parse(
+      Variables.driverGetJobEndpoint,
+    ).replace(queryParameters: {'x-key': apiKey});
 
     final response = await ApiClient.post(
       uri,
-      body: {
-        'user_id': userId,
-        'job_id': jobId.toString(),
-      },
+      body: {'user_id': userId, 'job_id': jobId.toString()},
     );
 
     log(
@@ -39,13 +37,12 @@ class DriverGetJobDatasource {
       level: 800,
     );
 
-
     if (response.statusCode == 200) {
       return DriverGetJobResponseModel.fromJson(response.body);
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
       log(response.body, name: 'DriverGetJobDatasource', level: 1200);
-      
+
       // Try to parse error message from server response
       String errorMessage = 'Failed to start job';
       try {

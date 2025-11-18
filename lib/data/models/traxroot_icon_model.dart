@@ -66,8 +66,12 @@ class TraxrootIconModel {
       url: normalizeUrl(_asString(map['url'])),
       urlCross: normalizeUrl(_asString(map['urlCross'])),
       urlDisabled: normalizeUrl(_asString(map['urlDisabled'])),
-      width: map['width'] is int ? map['width'] as int? : int.tryParse('${map['width']}'),
-      height: map['height'] is int ? map['height'] as int? : int.tryParse('${map['height']}'),
+      width: map['width'] is int
+          ? map['width'] as int?
+          : int.tryParse('${map['width']}'),
+      height: map['height'] is int
+          ? map['height'] as int?
+          : int.tryParse('${map['height']}'),
       color: map['color'] as String?,
     );
   }

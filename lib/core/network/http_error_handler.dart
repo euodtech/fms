@@ -13,10 +13,10 @@ class HttpErrorHandler {
     // Get AuthController
     try {
       final authController = Get.find<AuthController>();
-      
+
       // Clear all data and redirect to login
       authController.logout();
-      
+
       // Show snackbar using Flutter's SnackBar (not Get.snackbar)
       final context = Get.context;
       if (context != null && context.mounted) {

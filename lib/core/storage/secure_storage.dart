@@ -12,9 +12,7 @@ class SecureStorage {
 
   // FlutterSecureStorage instance (untuk release)
   final _secureStorage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
   // SharedPreferences instance (untuk debug)

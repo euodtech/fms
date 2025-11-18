@@ -27,12 +27,15 @@ class FirebaseMessangingRemoteDatasource {
     );
 
     if (kDebugMode) {
-      debugPrint('FirebaseMessaging permissions: '
-          '${notificationSettings.authorizationStatus}');
+      debugPrint(
+        'FirebaseMessaging permissions: '
+        '${notificationSettings.authorizationStatus}',
+      );
     }
 
-    const initializationSettingsAndroid =
-        AndroidInitializationSettings('ic_permission');
+    const initializationSettingsAndroid = AndroidInitializationSettings(
+      'ic_permission',
+    );
     final initializationSettingsIOS = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -40,10 +43,14 @@ class FirebaseMessangingRemoteDatasource {
     );
 
     final initializationSettings = InitializationSettings(
-        android: initializationSettingsAndroid, iOS: initializationSettingsIOS);
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings,
-        onDidReceiveNotificationResponse:
-            (NotificationResponse notificationResponse) async {});
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse:
+          (NotificationResponse notificationResponse) async {},
+    );
 
     final fcmToken = await _firebaseMessaging.getToken();
 
@@ -77,16 +84,22 @@ class FirebaseMessangingRemoteDatasource {
     FirebaseMessaging.onMessageOpenedApp.listen(firebaseBackgroundHandler);
   }
 
-  Future showNotification(
-      {int id = 0, String? title, String? body, String? payLoad}) async {
+  Future showNotification({
+    int id = 0,
+    String? title,
+    String? body,
+    String? payLoad,
+  }) async {
     return flutterLocalNotificationsPlugin.show(
       id,
       title,
       body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-            'com.querta.fms', 'app',
-            importance: Importance.max),
+          'com.querta.fms',
+          'app',
+          importance: Importance.max,
+        ),
         iOS: DarwinNotificationDetails(),
       ),
     );
@@ -94,7 +107,8 @@ class FirebaseMessangingRemoteDatasource {
 
   @pragma('vm:entry-point')
   Future<void> _firebaseMessagingBackgroundHandler(
-      RemoteMessage message) async {
+    RemoteMessage message,
+  ) async {
     await Firebase.initializeApp();
 
     FirebaseMessangingRemoteDatasource().firebaseBackgroundHandler(message);

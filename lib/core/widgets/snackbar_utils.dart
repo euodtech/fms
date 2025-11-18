@@ -18,8 +18,8 @@ class SnackbarUtils {
 
     final SnackBarAction? snackBarAction =
         (actionLabel != null && onActionPressed != null)
-            ? SnackBarAction(label: actionLabel, onPressed: onActionPressed)
-            : null;
+        ? SnackBarAction(label: actionLabel, onPressed: onActionPressed)
+        : null;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -73,7 +73,6 @@ class SnackbarUtils {
     );
   }
 }
-
 
 // SnackbarUtils(
 //   text: 'Failed to load data.',

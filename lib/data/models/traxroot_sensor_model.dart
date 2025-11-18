@@ -26,10 +26,18 @@ class TraxrootSensorModel {
 
     return TraxrootSensorModel(
       id: _parseString(map['id'] ?? map['Id']),
-      trackerId: _parseString(map['trackerid'] ?? map['TrackerId'] ?? map['trackerId']),
+      trackerId: _parseString(
+        map['trackerid'] ?? map['TrackerId'] ?? map['trackerId'],
+      ),
       name: _parseString(map['name'] ?? map['Name']),
       // Handle both 'itemid' (profile endpoint) and 'input' (Objects endpoint)
-      itemId: _parseString(map['itemid'] ?? map['ItemId'] ?? map['itemId'] ?? map['input'] ?? map['Input']),
+      itemId: _parseString(
+        map['itemid'] ??
+            map['ItemId'] ??
+            map['itemId'] ??
+            map['input'] ??
+            map['Input'],
+      ),
       units: _parseString(map['units'] ?? map['Units']),
       value: _parseString(map['value'] ?? map['Value']),
       flags: _parseString(map['flags'] ?? map['Flags']),

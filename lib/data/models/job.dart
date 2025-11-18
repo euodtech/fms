@@ -4,5 +4,10 @@ class JobItem {
   final String address;
   final String detail;
 
-  const JobItem({required this.id, required this.title, required this.address, required this.detail});
+  const JobItem({
+    required this.id,
+    required this.title,
+    required this.address,
+    required this.detail,
+  });
 }

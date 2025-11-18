@@ -42,20 +42,20 @@ class Data {
   String toJson() => json.encode(toMap());
 
   factory Data.fromMap(Map<String, dynamic> json) => Data(
-        userId: json["UserID"],
-        apiKey: json["ApiKey"],
-        company: json["Company"],
-        companyId: json["CompanyID"],
-        companyType: json["CompanyType"],
-        companyLabel: json["CompanyLabel"],
-      );
+    userId: json["UserID"],
+    apiKey: json["ApiKey"],
+    company: json["Company"],
+    companyId: json["CompanyID"],
+    companyType: json["CompanyType"],
+    companyLabel: json["CompanyLabel"],
+  );
 
   Map<String, dynamic> toMap() => {
-        "UserID": userId,
-        "ApiKey": apiKey,
-        "Company": company,
-        "CompanyID": companyId,
-        "CompanyType": companyType,
-        "CompanyLabel": companyLabel,
-      };
+    "UserID": userId,
+    "ApiKey": apiKey,
+    "Company": company,
+    "CompanyID": companyId,
+    "CompanyType": companyType,
+    "CompanyLabel": companyLabel,
+  };
 }

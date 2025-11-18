@@ -25,7 +25,7 @@ class AppTheme {
         foregroundColor: text,
         centerTitle: true,
       ),
-      cardTheme: CardThemeData (
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -53,10 +53,7 @@ class AppTheme {
       textTheme: Typography.blackMountainView.copyWith(
         bodyMedium: const TextStyle(color: subtleText, height: 1.25),
         bodyLarge: const TextStyle(color: text, height: 1.3),
-        titleMedium: const TextStyle(
-          color: text,
-          fontWeight: FontWeight.w600,
-        ),
+        titleMedium: const TextStyle(color: text, fontWeight: FontWeight.w600),
       ),
       useMaterial3: true,
     );

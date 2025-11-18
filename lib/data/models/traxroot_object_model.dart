@@ -66,9 +66,15 @@ class TraxrootObjectModel {
 
     return TraxrootObjectModel(
       main: mainMap != null ? TraxrootObjectMain.fromMap(mainMap) : null,
-      service: serviceMap != null ? TraxrootObjectService.fromMap(serviceMap) : null,
-      safety: safetyMap != null ? TraxrootObjectSafety.fromMap(safetyMap) : null,
-      odometer: odometerMap != null ? TraxrootObjectOdometer.fromMap(odometerMap) : null,
+      service: serviceMap != null
+          ? TraxrootObjectService.fromMap(serviceMap)
+          : null,
+      safety: safetyMap != null
+          ? TraxrootObjectSafety.fromMap(safetyMap)
+          : null,
+      odometer: odometerMap != null
+          ? TraxrootObjectOdometer.fromMap(odometerMap)
+          : null,
       trends: _asMapList(map['trends']),
       sensors: _asMapList(map['sensors']),
       groups: _asList(map['groups']),
@@ -265,10 +271,7 @@ class TraxrootObjectOdometer {
   final int? distance;
   final int? engineTime;
 
-  const TraxrootObjectOdometer({
-    this.distance,
-    this.engineTime,
-  });
+  const TraxrootObjectOdometer({this.distance, this.engineTime});
 
   factory TraxrootObjectOdometer.fromMap(Map<String, dynamic> map) {
     int? _toInt(dynamic value) {

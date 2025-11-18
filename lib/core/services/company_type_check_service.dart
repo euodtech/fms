@@ -26,8 +26,11 @@ class CompanyTypeCheckService {
       final apiKey = prefs.getString(Variables.prefApiKey);
 
       if (companyId == null || localCompanyType == null || apiKey == null) {
-        log('Missing company data in preferences', 
-            name: 'CompanyTypeCheckService', level: 900);
+        log(
+          'Missing company data in preferences',
+          name: 'CompanyTypeCheckService',
+          level: 900,
+        );
         return;
       }
 
@@ -41,8 +44,11 @@ class CompanyTypeCheckService {
         },
       );
 
-      log('Company type check response: ${response.statusCode}',
-          name: 'CompanyTypeCheckService', level: 800);
+      log(
+        'Company type check response: ${response.statusCode}',
+        name: 'CompanyTypeCheckService',
+        level: 800,
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = json.decode(response.body) as Map<String, dynamic>;
@@ -52,21 +58,33 @@ class CompanyTypeCheckService {
         if (success == true && companySubscribe != null) {
           // Check if company type matches
           if (localCompanyType != companySubscribe) {
-            log('Company type mismatch! Local: $localCompanyType, Remote: $companySubscribe',
-                name: 'CompanyTypeCheckService', level: 1000);
+            log(
+              'Company type mismatch! Local: $localCompanyType, Remote: $companySubscribe',
+              name: 'CompanyTypeCheckService',
+              level: 1000,
+            );
             await _logoutDueToMismatch();
           } else {
-            log('Company type match verified',
-                name: 'CompanyTypeCheckService', level: 800);
+            log(
+              'Company type match verified',
+              name: 'CompanyTypeCheckService',
+              level: 800,
+            );
           }
         }
       } else {
-        log('Failed to check company type: ${response.statusCode}',
-            name: 'CompanyTypeCheckService', level: 900);
+        log(
+          'Failed to check company type: ${response.statusCode}',
+          name: 'CompanyTypeCheckService',
+          level: 900,
+        );
       }
     } catch (e) {
-      log('Error checking company type: $e',
-          name: 'CompanyTypeCheckService', level: 1000);
+      log(
+        'Error checking company type: $e',
+        name: 'CompanyTypeCheckService',
+        level: 1000,
+      );
     } finally {
       _isChecking = false;
     }
@@ -94,8 +112,11 @@ class CompanyTypeCheckService {
       // Redirect to login page
       Get.offAll(() => const LoginPage());
     } catch (e) {
-      log('Error during logout: $e',
-          name: 'CompanyTypeCheckService', level: 1000);
+      log(
+        'Error during logout: $e',
+        name: 'CompanyTypeCheckService',
+        level: 1000,
+      );
     }
   }
 }

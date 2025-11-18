@@ -36,17 +36,25 @@ class TraxrootObjectStatusModel {
     this.sensors,
   });
 
-  GeoPoint? get geoPoint =>
-      latitude != null && longitude != null ? GeoPoint(latitude!, longitude!) : null;
+  GeoPoint? get geoPoint => latitude != null && longitude != null
+      ? GeoPoint(latitude!, longitude!)
+      : null;
 
   MapMarkerModel? toMarker({String? icon}) {
     final point = geoPoint;
     if (point == null) {
       return null;
     }
-    final statusText = status?.trim().isNotEmpty == true ? status!.trim() : null;
-    final speedText = speed != null ? '${speed!.toStringAsFixed(1)} km/h' : null;
-    final subtitleParts = <String>[if (statusText != null) statusText, if (speedText != null) speedText];
+    final statusText = status?.trim().isNotEmpty == true
+        ? status!.trim()
+        : null;
+    final speedText = speed != null
+        ? '${speed!.toStringAsFixed(1)} km/h'
+        : null;
+    final subtitleParts = <String>[
+      if (statusText != null) statusText,
+      if (speedText != null) speedText,
+    ];
     final subtitle = subtitleParts.join(' • ');
     return MapMarkerModel(
       id: 'object-${id ?? name ?? point.hashCode}',
@@ -153,7 +161,11 @@ class TraxrootObjectStatusModel {
       if (value is List) {
         return value
             .where((item) => item is Map)
-            .map((item) => TraxrootSensorModel.fromMap(Map<String, dynamic>.from(item as Map)))
+            .map(
+              (item) => TraxrootSensorModel.fromMap(
+                Map<String, dynamic>.from(item as Map),
+              ),
+            )
             .toList();
       }
       return null;
@@ -164,21 +176,36 @@ class TraxrootObjectStatusModel {
       id: _parseInt(
         map['Id'] ?? map['id'] ?? map['ObjectId'] ?? map['objectId'],
       ),
-      name: _parseString(map['Name'] ?? map['name'] ?? map['ObjectName'] ?? map['objectName']),
-      trackerId: _parseString(map['trackerid'] ?? map['TrackerId'] ?? map['trackerId']),
+      name: _parseString(
+        map['Name'] ?? map['name'] ?? map['ObjectName'] ?? map['objectName'],
+      ),
+      trackerId: _parseString(
+        map['trackerid'] ?? map['TrackerId'] ?? map['trackerId'],
+      ),
       latitude: _parseDouble(
         map['Latitude'] ?? map['latitude'] ?? map['Lat'] ?? map['lat'],
       ),
       longitude: _parseDouble(
-        map['Longitude'] ?? map['longitude'] ?? map['Lon'] ?? map['lon'] ?? map['Lng'] ?? map['lng'],
+        map['Longitude'] ??
+            map['longitude'] ??
+            map['Lon'] ??
+            map['lon'] ??
+            map['Lng'] ??
+            map['lng'],
       ),
       speed: _parseDouble(map['Speed'] ?? map['speed']),
       course: _parseDouble(map['Course'] ?? map['course'] ?? map['ang']),
       altitude: _parseDouble(map['Altitude'] ?? map['altitude'] ?? map['alt']),
       status: _parseString(map['Status'] ?? map['status']),
-      address: _parseString(map['Address'] ?? map['address'] ?? map['Location'] ?? map['location']),
-      updatedAt: _parseDate(map['UpdatedOn'] ?? map['updatedOn'] ?? map['time']),
-      satellites: _parseInt(map['Sat'] ?? map['sat'] ?? map['Satellites'] ?? map['satellites']),
+      address: _parseString(
+        map['Address'] ?? map['address'] ?? map['Location'] ?? map['location'],
+      ),
+      updatedAt: _parseDate(
+        map['UpdatedOn'] ?? map['updatedOn'] ?? map['time'],
+      ),
+      satellites: _parseInt(
+        map['Sat'] ?? map['sat'] ?? map['Satellites'] ?? map['satellites'],
+      ),
       accuracy: _parseDouble(map['Accuracy'] ?? map['accuracy']),
       iconId: _parseInt(
         map['IconId'] ??
@@ -188,7 +215,9 @@ class TraxrootObjectStatusModel {
             map['iconid'] ??
             map['icon_id'],
       ),
-      sensors: _parseSensors(map['trends'] ?? map['Trends'] ?? map['sensors'] ?? map['Sensors']),
+      sensors: _parseSensors(
+        map['trends'] ?? map['Trends'] ?? map['sensors'] ?? map['Sensors'],
+      ),
     );
   }
 }

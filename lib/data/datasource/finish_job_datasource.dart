@@ -21,8 +21,9 @@ class FinishJobDatasource {
       throw Exception('API Key not found');
     }
 
-    final uri = Uri.parse(Variables.finishedJobEndpoint)
-        .replace(queryParameters: {'x-key': apiKey});
+    final uri = Uri.parse(
+      Variables.finishedJobEndpoint,
+    ).replace(queryParameters: {'x-key': apiKey});
 
     final response = await ApiClient.post(
       uri,
@@ -37,14 +38,18 @@ class FinishJobDatasource {
       }),
     );
 
-    log('status: ${response.statusCode}', name: 'FinishJobDatasource', level: 800);
+    log(
+      'status: ${response.statusCode}',
+      name: 'FinishJobDatasource',
+      level: 800,
+    );
 
     if (response.statusCode == 200) {
       return FinishJobResponseModel.fromJson(response.body);
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
       log(response.body, name: 'FinishJobDatasource', level: 1200);
-      
+
       // Try to parse error message from server response
       String errorMessage = 'Failed to finish job';
       try {
@@ -62,7 +67,7 @@ class FinishJobDatasource {
       )) {
         ApiClient.resetLogoutFlag();
       }
-      
+
       return FinishJobResponseModel();
     }
   }

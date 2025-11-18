@@ -3,11 +3,7 @@ class TraxrootObjectGroupModel {
   final String? name;
   final String? objects;
 
-  const TraxrootObjectGroupModel({
-    this.id,
-    this.name,
-    this.objects,
-  });
+  const TraxrootObjectGroupModel({this.id, this.name, this.objects});
 
   factory TraxrootObjectGroupModel.fromMap(Map<String, dynamic> map) {
     return TraxrootObjectGroupModel(
@@ -18,11 +14,7 @@ class TraxrootObjectGroupModel {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'objects': objects,
-    };
+    return {'id': id, 'name': name, 'objects': objects};
   }
 
   int get groupId => int.tryParse(id ?? '') ?? 0;

@@ -17,8 +17,5 @@ class CancelJobResponseModel {
         message: (json['Message'] ?? json['message'])?.toString(),
       );
 
-  Map<String, dynamic> toMap() => {
-        'Success': success,
-        'Message': message,
-      };
+  Map<String, dynamic> toMap() => {'Success': success, 'Message': message};
 }

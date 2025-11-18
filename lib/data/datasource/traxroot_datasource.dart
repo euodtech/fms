@@ -104,7 +104,11 @@ class TraxrootObjectsDatasource {
     );
 
     if (response.statusCode != 200) {
-      log(response.body, name: 'TraxrootObjectsDatasource.getObjectStatus', level: 1200);
+      log(
+        response.body,
+        name: 'TraxrootObjectsDatasource.getObjectStatus',
+        level: 1200,
+      );
       throw Exception('Failed to fetch object status');
     }
 
@@ -143,7 +147,9 @@ class TraxrootObjectsDatasource {
   Future<TraxrootObjectStatusModel?> getLatestPoint({
     required int objectId,
   }) async {
-    final uri = Uri.parse('${Variables.traxrootObjectsStatusEndpoint}/$objectId');
+    final uri = Uri.parse(
+      '${Variables.traxrootObjectsStatusEndpoint}/$objectId',
+    );
     final response = await _authorizedGet(uri);
 
     log(
@@ -357,7 +363,8 @@ class TraxrootObjectsDatasource {
 
     // Some Traxroot responses wrap JSON in strings; try decoding again if needed
     if (decoded is String) {
-      final reparsed = _decodeTraxrootBody(decoded) ?? _attemptJsonDecode(decoded);
+      final reparsed =
+          _decodeTraxrootBody(decoded) ?? _attemptJsonDecode(decoded);
       if (reparsed != null) {
         decoded = reparsed;
       }
@@ -407,10 +414,10 @@ class TraxrootObjectsDatasource {
       getObjects(),
       getObjectStatus(objectId: objectId),
     ]);
-    
+
     final objectsList = results[0] as List<TraxrootObjectModel>;
     final status = results[1] as TraxrootObjectStatusModel;
-    
+
     // Find the object with matching ID
     final objectData = objectsList.firstWhere(
       (obj) => obj.id == objectId,
@@ -423,18 +430,18 @@ class TraxrootObjectsDatasource {
 
     // Get sensor metadata from object's raw data or trends field
     final rawData = objectData.raw;
-    
+
     log(
       'Object ID: $objectId, Has trends field: ${objectData.trends.isNotEmpty}, Raw keys: ${rawData.keys.toList()}',
       name: 'TraxrootObjectsDatasource.getObjectWithSensors',
       level: 800,
     );
-    
+
     // Try to get trends from multiple possible locations
-    dynamic trendsData = objectData.trends.isNotEmpty 
-        ? objectData.trends 
+    dynamic trendsData = objectData.trends.isNotEmpty
+        ? objectData.trends
         : (rawData['trends'] ?? rawData['Trends']);
-    
+
     // If trends not found, check for nested structures
     if (trendsData == null || (trendsData is List && trendsData.isEmpty)) {
       // Check in 'main' or other nested objects
@@ -442,13 +449,13 @@ class TraxrootObjectsDatasource {
         trendsData = rawData['main']['trends'];
       }
     }
-    
+
     log(
       'Trends data found: ${trendsData != null}, Count: ${trendsData is List ? trendsData.length : 0}',
       name: 'TraxrootObjectsDatasource.getObjectWithSensors',
       level: 800,
     );
-    
+
     if (trendsData == null || (trendsData is List && trendsData.isEmpty)) {
       log(
         'No trends data found for object $objectId',
@@ -459,26 +466,28 @@ class TraxrootObjectsDatasource {
     }
 
     final sensorMetadata = _normalizeDynamicList(trendsData);
-    
+
     log(
       'Sensor metadata count: ${sensorMetadata.length}',
       name: 'TraxrootObjectsDatasource.getObjectWithSensors',
       level: 800,
     );
-    
+
     // Create sensor models with sample values based on sensor type
     final sensors = sensorMetadata.map((t) {
       final sensorMap = Map<String, dynamic>.from(t);
       // Handle both 'itemid' and 'input' field names
-      final itemId = sensorMap['itemid']?.toString() ?? 
-                     sensorMap['input']?.toString() ?? '';
+      final itemId =
+          sensorMap['itemid']?.toString() ??
+          sensorMap['input']?.toString() ??
+          '';
       final name = sensorMap['name']?.toString() ?? '';
-      
+
       // Add sample values based on sensor type
       if (!sensorMap.containsKey('value') || sensorMap['value'] == null) {
         sensorMap['value'] = _getSampleSensorValue(itemId, name);
       }
-      
+
       return TraxrootSensorModel.fromMap(sensorMap);
     }).toList();
 
@@ -488,7 +497,7 @@ class TraxrootObjectsDatasource {
   /// Get sample sensor value based on sensor type
   String _getSampleSensorValue(String itemId, String name) {
     final nameLower = name.toLowerCase();
-    
+
     // Boolean sensors (0 or 1)
     if (nameLower.contains('moving')) {
       return '1'; // Moving
@@ -499,13 +508,15 @@ class TraxrootObjectsDatasource {
     if (itemId == 'IN251' || nameLower.contains('idling')) {
       return '0'; // Not idling
     }
-    if (itemId == 'IN252' || nameLower.contains('device status') || nameLower.contains('device unplugged')) {
+    if (itemId == 'IN252' ||
+        nameLower.contains('device status') ||
+        nameLower.contains('device unplugged')) {
       return '1'; // Device active
     }
     if (itemId == 'IN247' || itemId == 'IN257' || nameLower.contains('crash')) {
       return '0'; // No crash
     }
-    
+
     // Numeric sensors
     if (itemId == 'IN21' || nameLower.contains('gsm signal')) {
       return '4'; // Signal strength 4/5
@@ -528,16 +539,20 @@ class TraxrootObjectsDatasource {
     if (itemId == 'ACCEL' || nameLower.contains('harsh acceleration')) {
       return '0'; // No harsh acceleration
     }
-    if (itemId == 'BREAK_ACCEL' || itemId == 'VACCEL' || nameLower.contains('harsh break')) {
+    if (itemId == 'BREAK_ACCEL' ||
+        itemId == 'VACCEL' ||
+        nameLower.contains('harsh break')) {
       return '0'; // No harsh braking
     }
-    if (itemId == 'TURN_ACCEL' || nameLower.contains('harsh turn') || nameLower.contains('harsh corner')) {
+    if (itemId == 'TURN_ACCEL' ||
+        nameLower.contains('harsh turn') ||
+        nameLower.contains('harsh corner')) {
       return '0'; // No harsh cornering
     }
     if (nameLower.contains('intake air')) {
       return '28'; // 28°C
     }
-    
+
     return ''; // No value
   }
 

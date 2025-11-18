@@ -48,9 +48,7 @@ class ProfileRemoteDataSource {
         final decoded = json.decode(response.body) as Map<String, dynamic>;
         if (decoded['message'] != null) message = decoded['message'].toString();
       } catch (_) {}
-      if (message.toLowerCase().contains(
-        'company subscription mismatch',
-      )) {
+      if (message.toLowerCase().contains('company subscription mismatch')) {
         ApiClient.resetLogoutFlag();
       }
       return ProfileResponseModel();

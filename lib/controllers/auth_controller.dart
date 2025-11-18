@@ -24,13 +24,14 @@ class AuthController extends GetxController {
       if (token != null && token.isNotEmpty) {
         apiKey.value = token;
         isAuthenticated.value = true;
-        
+
         // Load CompanyType from SharedPreferences and update subscription service
         final prefs = await SharedPreferences.getInstance();
         final companyType = prefs.getInt(Variables.prefCompanyType);
         if (companyType != null) {
-          subscriptionService.currentPlan = 
-              companyType == 2 ? Plan.pro : Plan.basic;
+          subscriptionService.currentPlan = companyType == 2
+              ? Plan.pro
+              : Plan.basic;
         }
       } else {
         isAuthenticated.value = false;
@@ -53,7 +54,7 @@ class AuthController extends GetxController {
     await _storage.deleteAll();
     apiKey.value = '';
     isAuthenticated.value = false;
-    
+
     // Redirect to login page
     Get.offAll(() => const LoginPage());
   }
