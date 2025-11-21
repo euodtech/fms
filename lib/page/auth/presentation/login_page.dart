@@ -10,6 +10,13 @@ import 'package:fms/core/network/api_client.dart';
 import 'package:fms/core/services/traxroot_credentials_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../data/datasource/traxroot_datasource.dart';
+import '../../../data/models/traxroot_object_model.dart';
+import '../../../data/models/traxroot_icon_model.dart';
+import '../../../data/models/traxroot_object_group_model.dart';
+import '../../../data/models/traxroot_object_status_model.dart';
+import '../../../data/models/traxroot_driver_model.dart';
+import '../../../data/models/traxroot_geozone_model.dart';
 import '../widget/auth_button.dart';
 import '../widget/auth_text_field.dart';
 import 'forgot_password_page.dart';
@@ -108,7 +115,10 @@ class _LoginPageState extends State<LoginPage> {
       // Reset ApiClient logout flag for new login session
       ApiClient.resetLogoutFlag();
 
+      // Preload all Traxroot APIs in background for better performance
+
       if (!mounted) return;
+      _preloadTraxrootData();
       SnackbarUtils(
         text: 'Login Success',
         backgroundColor: Colors.green,
@@ -122,6 +132,7 @@ class _LoginPageState extends State<LoginPage> {
       String errorMessage = 'Login Failed';
       // Extract error message from exception
       final exceptionMessage = e.toString();
+      log(exceptionMessage, name: 'Login', level: 900);
       if (exceptionMessage.startsWith('Exception: ')) {
         errorMessage = exceptionMessage.substring('Exception: '.length);
       }
@@ -131,6 +142,91 @@ class _LoginPageState extends State<LoginPage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Preload all Traxroot APIs in background to improve app performance
+  void _preloadTraxrootData() {
+    final authDatasource = TraxrootAuthDatasource();
+    final objectsDatasource = TraxrootObjectsDatasource(authDatasource);
+    final internalDatasource = TraxrootInternalDatasource();
+    // Run all API calls in background without blocking navigation
+    Future.wait([
+          // Get all objects (vehicles)
+          objectsDatasource.getObjects().catchError((e) {
+            log('Preload getObjects failed: $e', name: 'LoginPage', level: 900);
+            return <TraxrootObjectModel>[];
+          }),
+
+          // Get object icons
+          objectsDatasource.getObjectIcons().catchError((e) {
+            log(
+              'Preload getObjectIcons failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootIconModel>[];
+          }),
+
+          // Get object groups
+          objectsDatasource.getObjectGroups().catchError((e) {
+            log(
+              'Preload getObjectGroups failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootObjectGroupModel>[];
+          }),
+
+          // Get all objects status
+          objectsDatasource.getAllObjectsStatus().catchError((e) {
+            log(
+              'Preload getAllObjectsStatus failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootObjectStatusModel>[];
+          }),
+
+          // Get drivers
+          objectsDatasource.getDrivers().catchError((e) {
+            log('Preload getDrivers failed: $e', name: 'LoginPage', level: 900);
+            return <TraxrootDriverModel>[];
+          }),
+
+          // Get geozones
+          internalDatasource.getGeozones().catchError((e) {
+            log(
+              'Preload getGeozones failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootGeozoneModel>[];
+          }),
+
+          // Get geozone icons
+          internalDatasource.getGeozoneIcons().catchError((e) {
+            log(
+              'Preload getGeozoneIcons failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootIconModel>[];
+          }),
+        ])
+        .then((_) {
+          log(
+            'Traxroot data preloading completed',
+            name: 'LoginPage',
+            level: 800,
+          );
+        })
+        .catchError((e) {
+          log(
+            'Traxroot data preloading error: $e',
+            name: 'LoginPage',
+            level: 1000,
+          );
+        });
   }
 
   @override

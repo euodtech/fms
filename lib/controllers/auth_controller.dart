@@ -4,6 +4,10 @@ import 'package:fms/core/storage/secure_storage.dart';
 import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/core/services/subscription.dart';
+import 'package:fms/controllers/home_controller.dart';
+import 'package:fms/controllers/vehicles_controller.dart';
+import 'package:fms/controllers/jobs_controller.dart';
+import 'package:fms/data/datasource/traxroot_datasource.dart';
 
 class AuthController extends GetxController {
   final RxBool isLoading = false.obs;
@@ -54,6 +58,28 @@ class AuthController extends GetxController {
     await _storage.deleteAll();
     apiKey.value = '';
     isAuthenticated.value = false;
+
+    // Clear Traxroot token cache
+    await TraxrootAuthDatasource().clearCachedToken();
+
+    // Clear controller caches
+    try {
+      if (Get.isRegistered<HomeController>()) {
+        Get.delete<HomeController>();
+      }
+    } catch (_) {}
+
+    try {
+      if (Get.isRegistered<VehiclesController>()) {
+        Get.delete<VehiclesController>();
+      }
+    } catch (_) {}
+
+    try {
+      if (Get.isRegistered<JobsController>()) {
+        Get.delete<JobsController>();
+      }
+    } catch (_) {}
 
     // Redirect to login page
     Get.offAll(() => const LoginPage());

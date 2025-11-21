@@ -67,7 +67,7 @@ class RescheduleJobDatasource {
         ApiClient.resetLogoutFlag();
       }
 
-      return RescheduleJobResponseModel();
+      return RescheduleJobResponseModel(success: false, message: errorMessage);
     }
   }
 }

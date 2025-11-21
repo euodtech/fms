@@ -68,7 +68,7 @@ class FinishJobDatasource {
         ApiClient.resetLogoutFlag();
       }
 
-      return FinishJobResponseModel();
+      return FinishJobResponseModel(success: false, message: errorMessage);
     }
   }
 }

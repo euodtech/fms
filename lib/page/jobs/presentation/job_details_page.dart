@@ -1329,7 +1329,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                           controller: notesController,
                           maxLines: 3,
                           decoration: InputDecoration(
-                            hintText: 'Leave notes here',
+                            hintText: 'Leave notes here (Required)',
                             hintStyle: textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant.withValues(
                                 alpha: 0.6,
@@ -1374,6 +1374,21 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
+                                // Validate notes field is not empty
+                                final notes = notesController.text.trim();
+                                if (notes.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please provide notes for rescheduling',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
                                 final scheduledDateTime = DateTime(
                                   selectedDate.year,
                                   selectedDate.month,
@@ -1381,9 +1396,25 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                   selectedTime.hour,
                                   selectedTime.minute,
                                 );
+
+                                if (scheduledDateTime.isBefore(
+                                  DateTime.now(),
+                                )) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Time cannot be in the past',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
                                 Navigator.of(dialogContext).pop({
                                   'date': scheduledDateTime,
-                                  'notes': notesController.text.trim(),
+                                  'notes': notes,
                                 });
                               },
                               style: ElevatedButton.styleFrom(
@@ -1447,11 +1478,14 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       final success = response.success == true;
       final message =
           response.message ??
-          (success ? 'Job rescheduled successfully' : 'Failed to reschedule');
+          (success ? 'Job rescheduled successfully' : response.message);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message, style: const TextStyle(color: Colors.white)),
+          content: Text(
+            message.toString(),
+            style: const TextStyle(color: Colors.white),
+          ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );

@@ -6,6 +6,7 @@ import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/traxroot_icon_model.dart';
 import 'package:fms/data/models/traxroot_object_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
+import 'package:fms/core/services/traxroot_credentials_manager.dart';
 
 class VehiclesController extends GetxController {
   final _objectsDatasource = TraxrootObjectsDatasource(
@@ -72,6 +73,17 @@ class VehiclesController extends GetxController {
     isLoading.value = true;
 
     try {
+      final hasTraxrootCreds =
+          await TraxrootCredentialsManager.hasCredentials();
+      if (!hasTraxrootCreds) {
+        objects.clear();
+        iconsById.clear();
+        availableGroups.clear();
+        groupCounts.clear();
+        selectedGroup.value = null;
+        return;
+      }
+
       final objectsData = await _objectsDatasource.getObjects();
       final icons = await _objectsDatasource.getObjectIcons();
       final objectGroups = await _objectsDatasource.getObjectGroups();
@@ -234,5 +246,17 @@ class VehiclesController extends GetxController {
 
   void updateSelectedGroup(String? value) {
     selectedGroup.value = (value == null || value.isEmpty) ? null : value;
+  }
+
+  void reset() {
+    isLoading.value = false;
+    objects.clear();
+    iconsById.clear();
+    loadingObjectId.value = null;
+    query.value = '';
+    selectedGroup.value = null;
+    availableGroups.clear();
+    groupCounts.clear();
+    groupIdToName.clear();
   }
 }

@@ -15,6 +15,7 @@ import '../models/traxroot_object_group_model.dart';
 import '../models/traxroot_sensor_model.dart';
 
 class TraxrootAuthDatasource {
+  static String? lastErrorMessage;
   Future<String> getAccessToken({bool forceRefresh = false}) async {
     final prefs = await SharedPreferences.getInstance();
     if (!forceRefresh) {
@@ -43,6 +44,7 @@ class TraxrootAuthDatasource {
   }
 
   Future<String> _requestAndCacheToken(SharedPreferences prefs) async {
+    lastErrorMessage = null;
     final username = await TraxrootCredentialsManager.getUsername(prefs: prefs);
     final password = await TraxrootCredentialsManager.getPassword(prefs: prefs);
     final response = await http.post(
@@ -67,13 +69,39 @@ class TraxrootAuthDatasource {
 
     if (response.statusCode != 200) {
       log(response.body, name: 'TraxrootAuthDatasource', level: 1200);
-      throw Exception('Failed to retrieve Traxroot token');
+
+      String message = 'Failed to retrieve Traxroot token';
+      try {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        if (decoded['errorMessage'] != null) {
+          message = decoded['errorMessage'].toString();
+        } else if (decoded['Message'] != null) {
+          message = decoded['Message'].toString();
+        } else if (decoded['message'] != null) {
+          message = decoded['message'].toString();
+        }
+      } catch (_) {
+        // ignore parsing error, keep default message
+      }
+      lastErrorMessage = message;
+      log(
+        'Traxroot token error: $message',
+        name: 'TraxrootAuthDatasource',
+        level: 1000,
+      );
+      // Do not throw; return empty token so callers can handle gracefully.
+      return '';
     }
 
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
     final token = decoded['accessToken'] as String?;
     if (token == null || token.isEmpty) {
-      throw Exception('Traxroot token missing in response');
+      log(
+        'Traxroot token missing in response',
+        name: 'TraxrootAuthDatasource',
+        level: 1000,
+      );
+      return '';
     }
 
     final expiresInSeconds = (decoded['expiresIn'] as int?) ?? 7200;
@@ -112,12 +140,12 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getObjectStatus',
         level: 1200,
       );
-      throw Exception('Failed to fetch object status');
+      return TraxrootObjectStatusModel();
     }
 
     final decoded = _decodeTraxrootBody(response.body);
     if (decoded == null) {
-      throw Exception('Empty Traxroot object status response');
+      return TraxrootObjectStatusModel();
     }
     final map = _extractSingleStatus(decoded);
     return TraxrootObjectStatusModel.fromMap(map);
@@ -136,12 +164,12 @@ class TraxrootObjectsDatasource {
 
     if (response.statusCode != 200) {
       log(response.body, name: 'TraxrootObjectsDatasource.getAll', level: 1200);
-      throw Exception('Failed to fetch objects status list');
+      return [];
     }
 
     final decoded = _decodeTraxrootBody(response.body);
     if (decoded == null) {
-      throw Exception('Empty Traxroot objects status response');
+      return [];
     }
     final list = _extractStatusList(decoded);
     return list.map(TraxrootObjectStatusModel.fromMap).toList();
@@ -167,12 +195,12 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getLatestPoint',
         level: 1200,
       );
-      throw Exception('Failed to fetch object latest point');
+      return null;
     }
 
     final decoded = _decodeTraxrootBody(response.body);
     if (decoded == null) {
-      throw Exception('Empty Traxroot object status response');
+      return null;
     }
 
     final list = _extractStatusList(decoded);
@@ -199,12 +227,12 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getObjects',
         level: 1200,
       );
-      throw Exception('Failed to fetch Traxroot objects');
+      return [];
     }
 
     final decoded = _decodeTraxrootBody(response.body);
     if (decoded == null) {
-      throw Exception('Empty Traxroot objects response');
+      return [];
     }
 
     final list = _normalizeDynamicList(decoded);
@@ -231,12 +259,12 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getObjectIcons',
         level: 1200,
       );
-      throw Exception('Failed to fetch Traxroot object icons');
+      return [];
     }
 
     final decoded = _decodeTraxrootBody(response.body);
     if (decoded == null) {
-      throw Exception('Empty Traxroot object icons response');
+      return [];
     }
 
     final list = _normalizeDynamicList(decoded);
@@ -263,12 +291,12 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getDrivers',
         level: 1200,
       );
-      throw Exception('Failed to fetch Traxroot drivers');
+      return [];
     }
 
     final decoded = _decodeTraxrootBody(response.body);
     if (decoded == null) {
-      throw Exception('Empty Traxroot drivers response');
+      return [];
     }
 
     final list = _normalizeDynamicList(decoded);
@@ -295,12 +323,12 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getGeozones',
         level: 1200,
       );
-      throw Exception('Failed to fetch Traxroot geozones');
+      return [];
     }
 
     final decoded = _decodeTraxrootBody(response.body);
     if (decoded == null) {
-      throw Exception('Empty Traxroot geozones response');
+      return [];
     }
 
     final list = _normalizeDynamicList(decoded);
@@ -327,12 +355,12 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getGeozoneIcons',
         level: 1200,
       );
-      throw Exception('Failed to fetch Traxroot geozone icons');
+      return [];
     }
 
     final decoded = _decodeTraxrootBody(response.body);
     if (decoded == null) {
-      throw Exception('Empty Traxroot geozone icons response');
+      return [];
     }
 
     final list = _normalizeDynamicList(decoded);
@@ -359,7 +387,7 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getProfile',
         level: 1200,
       );
-      throw Exception('Failed to fetch Traxroot profile');
+      return {};
     }
 
     dynamic decoded = _decodeTraxrootBody(response.body);
@@ -379,7 +407,7 @@ class TraxrootObjectsDatasource {
         name: 'TraxrootObjectsDatasource.getProfile',
         level: 1200,
       );
-      throw Exception('Failed to parse profile response');
+      return {};
     }
 
     return decoded;
@@ -596,7 +624,7 @@ Map<String, dynamic> _extractSingleStatus(dynamic payload) {
   if (unwrapped is Map<String, dynamic>) {
     return Map<String, dynamic>.from(unwrapped);
   }
-  throw Exception('Unexpected Traxroot object status response');
+  return {};
 }
 
 List<Map<String, dynamic>> _extractStatusList(dynamic payload) {
@@ -976,7 +1004,7 @@ class TraxrootInternalDatasource {
         name: 'TraxrootInternalDatasource.getDrivers',
         level: 1200,
       );
-      throw Exception('Failed to fetch drivers');
+      return [];
     }
 
     final decoded = jsonDecode(response.body);
@@ -989,7 +1017,7 @@ class TraxrootInternalDatasource {
           )
           .toList();
     }
-    throw Exception('Unexpected drivers response');
+    return [];
   }
 
   Future<TraxrootDriverModel> getDriverById(int driverId) async {
@@ -1009,14 +1037,14 @@ class TraxrootInternalDatasource {
         name: 'TraxrootInternalDatasource.getDriverById',
         level: 1200,
       );
-      throw Exception('Failed to fetch driver $driverId');
+      return TraxrootDriverModel();
     }
 
     final decoded = jsonDecode(response.body);
     if (decoded is Map<String, dynamic>) {
       return TraxrootDriverModel.fromMap(decoded);
     }
-    throw Exception('Unexpected driver detail response');
+    return TraxrootDriverModel();
   }
 
   Future<List<TraxrootGeozoneModel>> getGeozones() async {
@@ -1036,7 +1064,7 @@ class TraxrootInternalDatasource {
         name: 'TraxrootInternalDatasource.getGeozones',
         level: 1200,
       );
-      throw Exception('Failed to fetch geozones');
+      return [];
     }
 
     final decoded = jsonDecode(response.body);
@@ -1049,7 +1077,7 @@ class TraxrootInternalDatasource {
           )
           .toList();
     }
-    throw Exception('Unexpected geozones response');
+    return [];
   }
 
   Future<List<TraxrootIconModel>> getGeozoneIcons() async {
@@ -1069,7 +1097,7 @@ class TraxrootInternalDatasource {
         name: 'TraxrootInternalDatasource.getGeozoneIcons',
         level: 1200,
       );
-      throw Exception('Failed to fetch geozone icons');
+      return [];
     }
 
     final decoded = jsonDecode(response.body);
@@ -1081,7 +1109,7 @@ class TraxrootInternalDatasource {
           )
           .toList();
     }
-    throw Exception('Unexpected geozone icons response');
+    return [];
   }
 
   Future<http.Response> _authorizedGet(Uri uri) async {

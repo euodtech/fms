@@ -27,7 +27,7 @@ class TraxrootCredentialsManager {
     if (username != null && username.isNotEmpty) {
       return username;
     }
-    return Variables.traxrootUsername;
+    return '';
   }
 
   static Future<String> getPassword({SharedPreferences? prefs}) async {
@@ -36,7 +36,15 @@ class TraxrootCredentialsManager {
     if (password != null && password.isNotEmpty) {
       return password;
     }
-    return Variables.traxrootPassword;
+    return '';
+  }
+
+  static Future<bool> hasCredentials({SharedPreferences? prefs}) async {
+    await _ensureLoaded(prefs: prefs);
+    return _username != null &&
+        _username!.isNotEmpty &&
+        _password != null &&
+        _password!.isNotEmpty;
   }
 
   static Future<void> cache({

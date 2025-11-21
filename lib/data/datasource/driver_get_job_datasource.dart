@@ -58,7 +58,7 @@ class DriverGetJobDatasource {
       )) {
         ApiClient.resetLogoutFlag();
       }
-      return DriverGetJobResponseModel();
+      return DriverGetJobResponseModel(success: false, message: errorMessage);
     }
   }
 }

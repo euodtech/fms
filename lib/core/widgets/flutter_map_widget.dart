@@ -12,7 +12,7 @@ class FlutterMapWidget extends StatelessWidget {
   const FlutterMapWidget({
     super.key,
     required this.center,
-    this.zoom = 14,
+    this.zoom = 4,
     this.markers = const [],
     this.zones = const [],
     this.onMarkerTap,
@@ -96,10 +96,7 @@ class FlutterMapWidget extends StatelessWidget {
                     child: GestureDetector(
                       behavior: HitTestBehavior.translucent,
                       onTap: onMarkerTap != null ? () => onMarkerTap!(m) : null,
-                      child: Tooltip(
-                        message: _buildTooltipMessage(m),
-                        child: _buildMarkerIcon(m),
-                      ),
+                      child: _buildMarkerIcon(m),
                     ),
                   ),
                 )

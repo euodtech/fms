@@ -7,9 +7,16 @@ import 'package:fms/data/datasource/get_job_history_datasource.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/response/get_job_response_model.dart';
 import 'package:fms/data/models/traxroot_icon_model.dart';
+import 'package:fms/data/models/traxroot_object_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
+import 'package:fms/data/models/traxroot_geozone_model.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
+import 'dart:developer';
+import 'package:fms/core/services/home_widget_service.dart';
+import 'package:home_widget/home_widget.dart';
+import 'package:fms/core/services/traxroot_credentials_manager.dart';
+import 'package:fms/controllers/navigation_controller.dart';
 
 class HomeController extends GetxController {
   final _objectsDatasource = TraxrootObjectsDatasource(
@@ -59,16 +66,40 @@ class HomeController extends GetxController {
     error.value = '';
 
     try {
-      final objectsFuture = _objectsDatasource.getObjects();
-      final iconsFuture = _objectsDatasource.getObjectIcons();
-      final geozonesFuture = _internalDatasource.getGeozones();
+      final hasTraxrootCreds =
+          await TraxrootCredentialsManager.hasCredentials();
+      // Check for widget launch
+      final widgetUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+      if (widgetUri != null) {
+        _handleWidgetNavigation(widgetUri);
+      }
+
+      // Listen for widget clicks while app is running
+      HomeWidget.widgetClicked.listen(_handleWidgetNavigation);
+
+      // Always load job-related data
       final allJobsFuture = GetJobDatasource().getJob();
       final ongoingJobsFuture = GetJobOngoingDatasource().getOngoingJobs();
       final completedJobsFuture = GetJobHistoryDatasource().getJobHistory();
 
-      final objectsData = await objectsFuture;
-      final icons = await iconsFuture;
-      final geozones = await geozonesFuture;
+      // Conditionally load Traxroot map/vehicle data only when credentials exist
+      List<TraxrootObjectModel> objectsData = <TraxrootObjectModel>[];
+      List<TraxrootIconModel> icons = <TraxrootIconModel>[];
+      List<TraxrootGeozoneModel> geozones = <TraxrootGeozoneModel>[];
+
+      if (hasTraxrootCreds) {
+        final objectsFuture = _objectsDatasource.getObjects();
+        final iconsFuture = _objectsDatasource.getObjectIcons();
+        final geozonesFuture = _internalDatasource.getGeozones();
+
+        objectsData = await objectsFuture;
+        icons = await iconsFuture;
+        geozones = await geozonesFuture;
+      } else {
+        error.value =
+            'Unable to load map: Traxroot credentials are not configured. Please contact your administrator.';
+      }
+
       final allJobs = await allJobsFuture;
       final ongoingJobs = await ongoingJobsFuture;
       final completedJobs = await completedJobsFuture;
@@ -220,17 +251,40 @@ class HomeController extends GetxController {
       isLoading.value = false;
 
       _precacheIcons(usedIconUrls);
+      _updateWidgets();
+      if (error.value.isEmpty) {
+        final authError = TraxrootAuthDatasource.lastErrorMessage;
+        if (authError != null &&
+            authError.toLowerCase().contains('invalid username or password')) {
+          error.value =
+              'Unable to load map: Traxroot credentials are invalid. Please contact your administrator.';
+        }
+      }
     } catch (e) {
+      // On any Traxroot failure, keep job data but clear map-related state
+      markers.clear();
+      zones.clear();
+      objects.clear();
+      iconUrlByObjectId.clear();
+
       isLoading.value = false;
-      error.value = e.toString();
-      Get.snackbar(
-        colorText: Colors.white,
-        backgroundColor: Colors.red,
-        icon: const Icon(Icons.error, color: Colors.white),
-        'Error',
-        'Failed to load map data.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+
+      final msg = e.toString();
+      if (msg.toLowerCase().contains('invalid username or password')) {
+        error.value =
+            'Unable to load map: Traxroot credentials are invalid. Please contact your administrator.';
+      } else {
+        final authError = TraxrootAuthDatasource.lastErrorMessage;
+        if (authError != null &&
+            authError.toLowerCase().contains('invalid username or password')) {
+          error.value =
+              'Unable to load map: Traxroot credentials are invalid. Please contact your administrator.';
+        } else {
+          error.value = 'Failed to load map data. Please try again later.';
+        }
+      }
+      // No Get.snackbar here to avoid Overlay-related errors; HomeTab already
+      // displays error text under the map using controller.error.
     }
   }
 
@@ -262,5 +316,67 @@ class HomeController extends GetxController {
     } catch (_) {
       return null;
     }
+  }
+
+  void _updateWidgets() {
+    final widgetService = HomeWidgetService();
+
+    // Prepare recent jobs (top 3 from all jobs)
+    final recentJobs =
+        allJobsResponse.value?.data
+            ?.take(3)
+            .map(
+              (job) => {
+                'title': job.jobName ?? 'Unknown Job',
+                'status': job.typeJobName ?? 'Open',
+                'time': job.jobDate?.toIso8601String() ?? '',
+              },
+            )
+            .toList() ??
+        [];
+
+    // Update Job Stats
+    widgetService.updateJobStats(
+      open: openJobsCount,
+      ongoing: ongoingJobsCount,
+      complete: completedJobsCount,
+      recentJobs: recentJobs,
+    );
+
+    // Update Map Stats
+    widgetService.updateMapStats(
+      activeVehicles: markers.length,
+      markers: markers,
+    );
+  }
+
+  void _handleWidgetNavigation(Uri? uri) {
+    if (uri == null) return;
+
+    try {
+      final navController = Get.find<NavigationController>();
+
+      if (uri.host == 'job') {
+        // Navigate to Jobs tab (Index 2)
+        navController.changeTab(2);
+      } else if (uri.host == 'map') {
+        // Navigate to Home/Map tab (Index 0)
+        navController.changeTab(0);
+      }
+    } catch (e) {
+      log('NavigationController not found: $e');
+    }
+  }
+
+  void reset() {
+    isLoading.value = false;
+    error.value = '';
+    markers.clear();
+    zones.clear();
+    objects.clear();
+    iconUrlByObjectId.clear();
+    allJobsResponse.value = null;
+    ongoingJobsResponse.value = null;
+    completedJobsResponse.value = null;
   }
 }

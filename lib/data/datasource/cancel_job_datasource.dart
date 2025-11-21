@@ -57,7 +57,7 @@ class CancelJobDatasource {
         ApiClient.resetLogoutFlag();
       }
 
-      return CancelJobResponseModel();
+      return CancelJobResponseModel(success: false, message: errorMessage);
     }
   }
 }

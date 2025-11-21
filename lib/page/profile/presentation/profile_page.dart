@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:fms/core/services/subscription.dart';
 import '../../../core/widgets/snackbar_utils.dart';
 import '../../../data/datasource/auth_remote_datasource.dart';
+import '../../../data/datasource/traxroot_datasource.dart';
 import '../../../data/models/response/profile_response_model.dart';
 import '../../../data/datasource/profile_remote_datasource.dart';
+import '../../../controllers/home_controller.dart';
+import '../../../controllers/vehicles_controller.dart';
+import '../../../controllers/jobs_controller.dart';
 import '../../../nav_bar.dart';
 import '../../auth/presentation/login_page.dart';
 
@@ -171,7 +176,31 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           TextButton(
                             onPressed: () async {
+                              // Clear all auth data
                               await AuthRemoteDataSource().logout();
+
+                              // Clear Traxroot token cache
+                              await TraxrootAuthDatasource().clearCachedToken();
+
+                              // Clear controller caches
+                              try {
+                                if (Get.isRegistered<HomeController>()) {
+                                  Get.delete<HomeController>();
+                                }
+                              } catch (_) {}
+
+                              try {
+                                if (Get.isRegistered<VehiclesController>()) {
+                                  Get.delete<VehiclesController>();
+                                }
+                              } catch (_) {}
+
+                              try {
+                                if (Get.isRegistered<JobsController>()) {
+                                  Get.delete<JobsController>();
+                                }
+                              } catch (_) {}
+
                               if (mounted) {
                                 SnackbarUtils(
                                   text: 'Logout successful',

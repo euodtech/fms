@@ -1,7 +1,5 @@
 class Variables {
-  static const String baseUrl =
-      // 'http://192.168.1.11:8000'; //or replace with your website url as backend
-      'http://quetraverse.pro/efms/api/myapi';
+  static const String baseUrl = 'http://quetraverse.pro/efms/api/myapi';
   static const String imageBaseUrl = '$baseUrl/public/storage//';
 
   // API endpoints helper methods
@@ -30,8 +28,8 @@ class Variables {
   // Traxroot endpoints
   static const String traxrootBaseUrl = 'https://connect.traxroot.com/api';
   static const String traxrootTokenEndpoint = '$traxrootBaseUrl/Token';
-  static const String traxrootUsername = 'euodoo';
-  static const String traxrootPassword = 'euodoo360';
+  // static const String traxrootUsername = 'euodoo';
+  // static const String traxrootPassword = 'euodoo360';
   static const int traxrootSubUserId = 0;
   static const String traxrootLanguage = 'en';
   static const String traxrootIconBaseUrl = 'https://connect.traxroot.com';
