@@ -11,18 +11,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:get/get.dart';
 
-import '../../../controllers/jobs_controller.dart';
+import '../controller/jobs_controller.dart';
 
 import '../../../core/permissions/permission_helper.dart';
-import '../../../data/datasource/cancel_job_datasource.dart';
-import '../../../data/datasource/finish_job_datasource.dart';
-import '../../../data/datasource/reschedule_job_datasource.dart';
-import '../../../data/datasource/traxroot_datasource.dart';
 import '../../../core/models/geo.dart';
 import '../../profile/presentation/profile_page.dart';
-
-import 'package:fms/data/datasource/driver_get_job_datasource.dart';
-import 'package:fms/data/models/response/driver_get_job_response_model.dart';
 
 import 'job_navigation_page.dart';
 
@@ -93,6 +86,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final hasRescheduled =
         jobIdValue != null &&
         _jobsController.rescheduledJobs.containsKey(jobIdValue);
+    final bool isRescheduledStatus = isOngoing && job.status == 3;
 
     Widget buildPill(
       String label, {
@@ -324,9 +318,15 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                             runSpacing: 12,
                             children: [
                               buildPill(
-                                isOngoing ? 'Status: Ongoing' : 'Status: Open',
+                                isOngoing
+                                    ? (isRescheduledStatus
+                                          ? 'Status: Rescheduled'
+                                          : 'Status: Ongoing')
+                                    : 'Status: Open',
                                 icon: isOngoing
-                                    ? Icons.timelapse
+                                    ? (isRescheduledStatus
+                                          ? Icons.event_repeat
+                                          : Icons.timelapse)
                                     : Icons.event_available,
                                 foreground: Colors.white,
                                 background: isOngoing
@@ -741,24 +741,26 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     );
 
     try {
-      final datasource = DriverGetJobDatasource();
-      final DriverGetJobResponseModel response = await datasource.driverGetJob(
-        jobId: jobId,
-      );
+      final response = await _jobsController.startJob(jobId);
 
       if (context.mounted) {
         Navigator.of(context).pop(); // close loading
+        final isSuccess = response.success == true;
+        final message =
+            response.message ??
+            (isSuccess ? 'Success Driver Get The Job' : 'Failed to start job');
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: Colors.green,
-            content: Text(
-              response.message ?? 'Success Driver Get The Job',
-              style: TextStyle(color: Colors.white),
-            ),
+            backgroundColor: isSuccess ? Colors.green : Colors.red,
+            content: Text(message, style: const TextStyle(color: Colors.white)),
           ),
         );
-        // Return with special flag to navigate to ongoing tab
-        Navigator.pop(context, {'refresh': true, 'navigateToOngoing': true});
+
+        if (isSuccess) {
+          // Return with special flag to navigate to ongoing tab
+          Navigator.pop(context, {'refresh': true, 'navigateToOngoing': true});
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -856,8 +858,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         imagesBase64.add(base64Encode(bytes));
       }
 
-      final datasource = FinishJobDatasource();
-      final response = await datasource.finishJob(
+      final response = await _jobsController.finishJob(
         jobId: jobId,
         imagesBase64: imagesBase64,
         notes: trimmedNotes.isEmpty ? null : trimmedNotes,
@@ -1464,8 +1465,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     );
 
     try {
-      final datasource = RescheduleJobDatasource();
-      final response = await datasource.rescheduleJob(
+      final response = await _jobsController.rescheduleJob(
         jobId: jobId,
         newDate: scheduledDate,
         notes: notes,
@@ -1593,8 +1593,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     );
 
     try {
-      final datasource = CancelJobDatasource();
-      final response = await datasource.cancelJob(
+      final response = await _jobsController.cancelJob(
         jobId: jobId,
         reason: reason.trim(),
       );
@@ -1665,8 +1664,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     );
 
     try {
-      final datasource = TraxrootObjectsDatasource(TraxrootAuthDatasource());
-      final status = await datasource.getObjectStatus(objectId: objectId);
+      final status = await _jobsController.getObjectStatusForJob(objectId);
       final entry = _extractCoordinateEntry(status);
 
       if (entry == null) {

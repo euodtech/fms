@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:fms/controllers/auth_controller.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
 
 class HttpErrorHandler {
   static void handleResponse(int statusCode, String responseBody) {

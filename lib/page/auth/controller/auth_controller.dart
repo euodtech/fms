@@ -1,0 +1,269 @@
+import 'dart:developer';
+
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:fms/core/constants/variables.dart';
+import 'package:fms/core/network/api_client.dart';
+import 'package:fms/core/services/subscription.dart';
+import 'package:fms/core/services/traxroot_credentials_manager.dart';
+import 'package:fms/core/storage/secure_storage.dart';
+import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:fms/data/datasource/auth_remote_datasource.dart';
+import 'package:fms/data/datasource/traxroot_datasource.dart';
+import 'package:fms/data/models/traxroot_driver_model.dart';
+import 'package:fms/data/models/traxroot_geozone_model.dart';
+import 'package:fms/data/models/traxroot_icon_model.dart';
+import 'package:fms/data/models/traxroot_object_group_model.dart';
+import 'package:fms/data/models/traxroot_object_model.dart';
+import 'package:fms/data/models/traxroot_object_status_model.dart';
+import 'package:fms/nav_bar.dart';
+import 'package:fms/page/auth/presentation/login_page.dart';
+import 'package:fms/page/home/controller/home_controller.dart';
+import 'package:fms/page/jobs/controller/jobs_controller.dart';
+import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class AuthController extends GetxController {
+  final RxBool isLoading = false.obs;
+  final RxBool isAuthenticated = false.obs;
+  final RxString apiKey = ''.obs;
+  final _storage = SecureStorage();
+
+  @override
+  void onInit() {
+    super.onInit();
+    checkSession();
+  }
+
+  Future<void> checkSession() async {
+    isLoading.value = true;
+    try {
+      final token = await _storage.read(Variables.prefApiKey);
+      if (token != null && token.isNotEmpty) {
+        apiKey.value = token;
+        isAuthenticated.value = true;
+
+        // Load CompanyType from SharedPreferences and update subscription service
+        final prefs = await SharedPreferences.getInstance();
+        final companyType = prefs.getInt(Variables.prefCompanyType);
+        if (companyType != null) {
+          subscriptionService.currentPlan = companyType == 2
+              ? Plan.pro
+              : Plan.basic;
+        }
+      } else {
+        isAuthenticated.value = false;
+      }
+    } catch (e) {
+      isAuthenticated.value = false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> login(String token) async {
+    await _storage.write(Variables.prefApiKey, token);
+    apiKey.value = token;
+    isAuthenticated.value = true;
+  }
+
+  Future<void> loginWithCredentials({
+    required String email,
+    required String password,
+    required BuildContext context,
+  }) async {
+    final dataSource = AuthRemoteDataSource();
+
+    try {
+      final res = await dataSource.login(
+        email: email.trim(),
+        password: password,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      final apiKeyResult = res.data?.apiKey;
+      final userID = res.data?.userId;
+      final company = res.data?.company;
+      final companyId = res.data?.companyId;
+      final companyType = res.data?.companyType;
+      final companyLabel = res.data?.companyLabel;
+      final usernameTraxroot = res.data?.usernameTraxroot;
+      final passwordTraxroot = res.data?.passwordTraxroot;
+
+      if (apiKeyResult == null || apiKeyResult.isEmpty) {
+        throw Exception('Error fetch data');
+      }
+
+      await prefs.setString(Variables.prefApiKey, apiKeyResult);
+      await _storage.write(Variables.prefApiKey, apiKeyResult);
+      apiKey.value = apiKeyResult;
+      isAuthenticated.value = true;
+
+      log(userID.toString(), name: 'Login', level: 800);
+
+      if (userID != null && userID.toString().isNotEmpty) {
+        await prefs.setString(Variables.prefUserID, userID.toString());
+      }
+
+      if (company != null) {
+        await prefs.setString(Variables.prefCompany, company);
+      }
+
+      if (companyId != null) {
+        await prefs.setInt(Variables.prefCompanyID, companyId);
+      }
+
+      if (companyType != null) {
+        await prefs.setInt(Variables.prefCompanyType, companyType);
+        subscriptionService.currentPlan = companyType == 2
+            ? Plan.pro
+            : Plan.basic;
+        log(
+          'Company type: $companyType, Plan: ${subscriptionService.currentPlan}',
+          name: 'Login',
+          level: 800,
+        );
+      }
+
+      if (companyLabel != null) {
+        await prefs.setString(Variables.prefCompanyLabel, companyLabel);
+      }
+
+      await TraxrootCredentialsManager.cache(
+        username: usernameTraxroot,
+        password: passwordTraxroot,
+        prefs: prefs,
+      );
+
+      ApiClient.resetLogoutFlag();
+
+      if (!context.mounted) return;
+
+      _preloadTraxrootData();
+
+      SnackbarUtils(
+        text: 'Login Success',
+        backgroundColor: Colors.green,
+      ).showSuccessSnackBar(context);
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const NavBar()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      String errorMessage = 'Login Failed';
+      final exceptionMessage = e.toString();
+      log(exceptionMessage, name: 'Login', level: 900);
+      if (exceptionMessage.startsWith('Exception: ')) {
+        errorMessage = exceptionMessage.substring('Exception: '.length);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> logout() async {
+    // Clear all data
+    await _storage.deleteAll();
+    apiKey.value = '';
+    isAuthenticated.value = false;
+
+    // Clear Traxroot token cache
+    await TraxrootAuthDatasource().clearCachedToken();
+
+    // Clear controller caches
+    try {
+      if (Get.isRegistered<HomeController>()) {
+        Get.delete<HomeController>();
+      }
+    } catch (_) {}
+
+    try {
+      if (Get.isRegistered<VehiclesController>()) {
+        Get.delete<VehiclesController>();
+      }
+    } catch (_) {}
+
+    try {
+      if (Get.isRegistered<JobsController>()) {
+        Get.delete<JobsController>();
+      }
+    } catch (_) {}
+
+    // Redirect to login page
+    Get.offAll(() => const LoginPage());
+  }
+
+  void _preloadTraxrootData() {
+    final authDatasource = TraxrootAuthDatasource();
+    final objectsDatasource = TraxrootObjectsDatasource(authDatasource);
+    final internalDatasource = TraxrootInternalDatasource();
+
+    Future.wait([
+          objectsDatasource.getObjects().catchError((e) {
+            log('Preload getObjects failed: $e', name: 'LoginPage', level: 900);
+            return <TraxrootObjectModel>[];
+          }),
+          objectsDatasource.getObjectIcons().catchError((e) {
+            log(
+              'Preload getObjectIcons failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootIconModel>[];
+          }),
+          objectsDatasource.getObjectGroups().catchError((e) {
+            log(
+              'Preload getObjectGroups failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootObjectGroupModel>[];
+          }),
+          objectsDatasource.getAllObjectsStatus().catchError((e) {
+            log(
+              'Preload getAllObjectsStatus failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootObjectStatusModel>[];
+          }),
+          objectsDatasource.getDrivers().catchError((e) {
+            log('Preload getDrivers failed: $e', name: 'LoginPage', level: 900);
+            return <TraxrootDriverModel>[];
+          }),
+          internalDatasource.getGeozones().catchError((e) {
+            log(
+              'Preload getGeozones failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootGeozoneModel>[];
+          }),
+          internalDatasource.getGeozoneIcons().catchError((e) {
+            log(
+              'Preload getGeozoneIcons failed: $e',
+              name: 'LoginPage',
+              level: 900,
+            );
+            return <TraxrootIconModel>[];
+          }),
+        ])
+        .then((_) {
+          log(
+            'Traxroot data preloading completed',
+            name: 'LoginPage',
+            level: 800,
+          );
+        })
+        .catchError((e) {
+          log(
+            'Traxroot data preloading error: $e',
+            name: 'LoginPage',
+            level: 1000,
+          );
+        });
+  }
+}

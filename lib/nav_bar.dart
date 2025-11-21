@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:fms/page/home/presentation/home_page.dart';
 import 'package:fms/page/vehicles/presentation/vehicles_page.dart';
 import 'package:fms/page/jobs/presentation/jobs_gate_tab.dart';
-import 'package:fms/controllers/navigation_controller.dart';
+import 'package:fms/core/navigation/navigation_controller.dart';
 import 'core/widgets/app_bar_widget.dart';
 
 class NavBar extends StatelessWidget {

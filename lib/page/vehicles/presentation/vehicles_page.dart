@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fms/core/widgets/object_status_bottom_sheet.dart';
-import 'package:fms/controllers/vehicles_controller.dart';
+import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
 import 'package:fms/page/vehicles/presentation/vehicle_tracking_page.dart';
 
 class VehiclesPage extends StatefulWidget {

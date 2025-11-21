@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:fms/data/datasource/cancel_job_datasource.dart';
+import 'package:fms/data/datasource/driver_get_job_datasource.dart';
+import 'package:fms/data/datasource/finish_job_datasource.dart';
 import 'package:fms/data/datasource/get_job_datasource.dart';
 import 'package:fms/data/datasource/get_job_history_datasource.dart';
 import 'package:fms/data/datasource/get_job_ongoing_datasource.dart';
+import 'package:fms/data/datasource/reschedule_job_datasource.dart';
+import 'package:fms/data/datasource/traxroot_datasource.dart';
+import 'package:fms/data/models/response/cancel_job_response_model.dart';
+import 'package:fms/data/models/response/driver_get_job_response_model.dart';
+import 'package:fms/data/models/response/finish_job_response_model.dart';
 import 'package:fms/data/models/response/get_job_response_model.dart';
+import 'package:fms/data/models/response/get_job_ongoing_response_model.dart'
+    as ongoing;
 import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
+import 'package:fms/data/models/response/reschedule_job_response_model.dart';
+import 'package:fms/data/models/traxroot_object_status_model.dart';
 
 class JobsController extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -22,9 +34,8 @@ class JobsController extends GetxController
   final RxBool isLoadingAllJobs = true.obs;
   final RxBool isLoadingHistoryJobs = true.obs;
   final RxBool isLoadingOngoingJobs = true.obs;
-  final Rx<GetJobResponseModel?> ongoingJobsResponse = Rx<GetJobResponseModel?>(
-    null,
-  );
+  final Rx<ongoing.GetJobOngoingResponseModel?> ongoingJobsResponse =
+      Rx<ongoing.GetJobOngoingResponseModel?>(null);
 
   final RxMap<int, DateTime> rescheduledJobs = <int, DateTime>{}.obs;
   late TabController tabController;
@@ -32,6 +43,13 @@ class JobsController extends GetxController
   final _getJobDatasource = GetJobDatasource();
   final _getJobHistoryDatasource = GetJobHistoryDatasource();
   final _getJobOngoingDatasource = GetJobOngoingDatasource();
+  final _driverGetJobDatasource = DriverGetJobDatasource();
+  final _finishJobDatasource = FinishJobDatasource();
+  final _rescheduleJobDatasource = RescheduleJobDatasource();
+  final _cancelJobDatasource = CancelJobDatasource();
+  final _traxrootObjectsDatasource = TraxrootObjectsDatasource(
+    TraxrootAuthDatasource(),
+  );
 
   @override
   void onClose() {
@@ -99,5 +117,44 @@ class JobsController extends GetxController
 
   void clearJobRescheduled(int jobId) {
     rescheduledJobs.remove(jobId);
+  }
+
+  Future<DriverGetJobResponseModel> startJob(int jobId) {
+    return _driverGetJobDatasource.driverGetJob(jobId: jobId);
+  }
+
+  Future<FinishJobResponseModel> finishJob({
+    required int jobId,
+    required List<String> imagesBase64,
+    String? notes,
+  }) {
+    return _finishJobDatasource.finishJob(
+      jobId: jobId,
+      imagesBase64: imagesBase64,
+      notes: notes,
+    );
+  }
+
+  Future<RescheduleJobResponseModel> rescheduleJob({
+    required int jobId,
+    required DateTime newDate,
+    String? notes,
+  }) {
+    return _rescheduleJobDatasource.rescheduleJob(
+      jobId: jobId,
+      newDate: newDate,
+      notes: notes,
+    );
+  }
+
+  Future<CancelJobResponseModel> cancelJob({
+    required int jobId,
+    required String reason,
+  }) {
+    return _cancelJobDatasource.cancelJob(jobId: jobId, reason: reason);
+  }
+
+  Future<TraxrootObjectStatusModel> getObjectStatusForJob(int objectId) {
+    return _traxrootObjectsDatasource.getObjectStatus(objectId: objectId);
   }
 }

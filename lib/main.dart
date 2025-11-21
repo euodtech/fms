@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import 'package:fms/core/theme/app_theme.dart';
 import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:fms/nav_bar.dart';
-import 'package:fms/controllers/auth_controller.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 

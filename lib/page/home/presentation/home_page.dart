@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fms/core/widgets/adaptive_map.dart';
 import 'package:fms/core/widgets/object_status_bottom_sheet.dart';
-import 'package:fms/controllers/home_controller.dart';
+import 'package:fms/page/home/controller/home_controller.dart';
 import 'package:fms/page/vehicles/presentation/vehicle_tracking_page.dart';
 import 'package:fms/core/services/subscription.dart';
 

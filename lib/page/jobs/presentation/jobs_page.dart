@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:fms/controllers/jobs_controller.dart';
+import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/data/models/response/get_job_response_model.dart';
 import 'package:fms/page/jobs/presentation/job_details_page.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart'
@@ -146,10 +146,13 @@ class JobsPage extends StatelessWidget {
           itemBuilder: (context, index) {
             final job = controller.ongoingJobsResponse.value!.data![index];
             final jobId = job.jobId;
+            final status = job.status;
+            final isRescheduledStatus = status == 3;
             final rescheduledDate = jobId != null
                 ? controller.rescheduledJobs[jobId]
                 : null;
-            final hasRescheduled = rescheduledDate != null;
+            final hasRescheduled =
+                rescheduledDate != null || isRescheduledStatus;
             return JobSummaryCard(
               title: job.jobName ?? 'Untitled Job',
               customerName: job.customerName,
@@ -158,9 +161,11 @@ class JobsPage extends StatelessWidget {
               badges: [
                 _buildJobTypeBadge(context, job.typeJob),
                 _buildStatusBadge(
-                  label: 'In Progress',
-                  color: accent,
-                  icon: Icons.timelapse,
+                  label: isRescheduledStatus ? 'Rescheduled' : 'In Progress',
+                  color: isRescheduledStatus ? Colors.orange : accent,
+                  icon: isRescheduledStatus
+                      ? Icons.event_repeat
+                      : Icons.timelapse,
                 ),
                 if (rescheduledDate != null)
                   _buildStatusBadge(
@@ -273,7 +278,7 @@ class JobsPage extends StatelessWidget {
     );
   }
 
-  void _openJobDetails(Data job, {bool isOngoing = false}) async {
+  void _openJobDetails(dynamic job, {bool isOngoing = false}) async {
     final result = await Get.to(
       () => JobDetailsPage(job: job, isOngoing: isOngoing),
     );

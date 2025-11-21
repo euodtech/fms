@@ -1,15 +1,13 @@
 import 'dart:async';
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../../core/models/geo.dart';
 import '../../../core/widgets/adaptive_map.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
-import '../../../data/datasource/traxroot_datasource.dart';
-import '../../../data/models/traxroot_geozone_model.dart';
 import '../../../data/models/traxroot_object_status_model.dart';
 import '../../vehicles/presentation/vehicle_tracking_page.dart';
+import '../controller/job_navigation_controller.dart';
 
 class JobNavigationPage extends StatefulWidget {
   final double latitude;
@@ -29,127 +27,28 @@ class JobNavigationPage extends StatefulWidget {
 }
 
 class _JobNavigationPageState extends State<JobNavigationPage> {
-  final _objectsDatasource = TraxrootObjectsDatasource(
-    TraxrootAuthDatasource(),
-  );
-  final _internalDatasource = TraxrootInternalDatasource();
-
-  bool _loading = false;
-  List<MapMarkerModel> _markers = const [];
-  List<MapZoneModel> _zones = const [];
-  String? _error;
+  late final JobNavigationController _controller;
 
   GeoPoint get _jobPoint => GeoPoint(widget.latitude, widget.longitude);
 
   @override
   void initState() {
     super.initState();
+    _controller = Get.put(JobNavigationController());
     _loadData();
   }
 
   Future<void> _loadData() async {
     if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    final jobMarker = MapMarkerModel(
-      id: 'job-destination',
-      position: _jobPoint,
-      title: widget.jobName,
-      subtitle: widget.address,
+    final warnings = await _controller.loadData(
+      jobPoint: _jobPoint,
+      jobName: widget.jobName,
+      address: widget.address,
     );
-
-    setState(() {
-      _markers = [jobMarker];
-      _zones = const [];
-    });
-
-    final objectsStatusFuture = _objectsDatasource.getAllObjectsStatus();
-    final geozonesFuture = _internalDatasource.getGeozones();
-
-    final warnings = <String>[];
-
-    List<TraxrootObjectStatusModel> objectsStatus = const [];
-    List<TraxrootGeozoneModel> geozones = const [];
-
-    try {
-      try {
-        objectsStatus = await objectsStatusFuture.timeout(
-          const Duration(seconds: 12),
-        );
-      } on TimeoutException catch (_) {
-        warnings.add('Fetching vehicle data takes longer than usual.');
-      } catch (e, st) {
-        warnings.add('Failed to load vehicle data.');
-        log(
-          'Failed to load Traxroot object status list',
-          name: 'JobNavigationPage',
-          error: e,
-          stackTrace: st,
-        );
-      }
-
-      try {
-        geozones = await geozonesFuture.timeout(const Duration(seconds: 12));
-      } on TimeoutException catch (_) {
-        warnings.add('Fetching geozone data takes longer than usual.');
-      } catch (e, st) {
-        warnings.add('Failed to load geozone data.');
-        log(
-          'Failed to load Traxroot geozones',
-          name: 'JobNavigationPage',
-          error: e,
-          stackTrace: st,
-        );
-      }
-
-      if (!mounted) return;
-
-      final markers = <MapMarkerModel>[jobMarker];
-      for (final object in objectsStatus) {
-        final marker = object.toMarker();
-        if (marker != null) {
-          markers.add(marker);
-        }
-      }
-
-      final zones = <MapZoneModel>[];
-      for (final geozone in geozones) {
-        final zone = geozone.toZoneModel();
-        if (zone != null) {
-          zones.add(zone);
-        }
-      }
-
-      setState(() {
-        _markers = markers;
-        _zones = zones;
-        _loading = false;
-        _error = warnings.isEmpty ? null : warnings.join('\n');
-      });
-
-      if (warnings.isNotEmpty && mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(warnings.join('\n'))));
-      }
-    } catch (e, st) {
-      if (!mounted) return;
-      log(
-        'Unexpected error while loading navigation data',
-        name: 'JobNavigationPage',
-        error: e,
-        stackTrace: st,
-      );
-      setState(() {
-        _loading = false;
-        _error = 'Failed to load map data';
-      });
+    if (warnings.isNotEmpty && mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load map data')));
+      ).showSnackBar(SnackBar(content: Text(warnings.join('\n'))));
     }
   }
 
@@ -162,7 +61,7 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
         actions: [
           IconButton(
             tooltip: 'Refresh',
-            onPressed: _loading ? null : _loadData,
+            onPressed: _controller.isLoading.value ? null : _loadData,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -170,68 +69,75 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                widget.jobName,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (widget.address != null) ...[
-                const SizedBox(height: 8),
-                Text(widget.address!, style: theme.textTheme.bodyMedium),
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: 12),
+          child: Obx(() {
+            final error = _controller.error.value;
+            final markers = _controller.markers;
+            final zones = _controller.zones;
+            final loading = _controller.isLoading.value;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Text(
-                  _error!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
+                  widget.jobName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-              const SizedBox(height: 16),
-              Expanded(
-                child: Stack(
-                  children: [
-                    AdaptiveMap(
-                      center: _jobPoint,
-                      markers: _markers,
-                      zones: _zones,
-                      onMarkerTap: _handleMarkerTap,
+                if (widget.address != null) ...[
+                  const SizedBox(height: 8),
+                  Text(widget.address!, style: theme.textTheme.bodyMedium),
+                ],
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    error,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
                     ),
-                    if (_loading)
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            color: Color(0x33000000),
-                          ),
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Markers: ${_markers.length}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  Text(
-                    'Geozones: ${_zones.length}',
-                    style: theme.textTheme.bodySmall,
                   ),
                 ],
-              ),
-            ],
-          ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      AdaptiveMap(
+                        center: _jobPoint,
+                        markers: markers,
+                        zones: zones,
+                        onMarkerTap: _handleMarkerTap,
+                      ),
+                      if (loading)
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: const BoxDecoration(
+                              color: Color(0x33000000),
+                            ),
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Markers: ${markers.length}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    Text(
+                      'Geozones: ${zones.length}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }),
         ),
       ),
     );

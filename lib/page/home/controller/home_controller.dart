@@ -6,6 +6,8 @@ import 'package:fms/data/datasource/get_job_ongoing_datasource.dart';
 import 'package:fms/data/datasource/get_job_history_datasource.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/response/get_job_response_model.dart';
+import 'package:fms/data/models/response/get_job_ongoing_response_model.dart'
+    as ongoing;
 import 'package:fms/data/models/traxroot_icon_model.dart';
 import 'package:fms/data/models/traxroot_object_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
@@ -16,7 +18,7 @@ import 'dart:developer';
 import 'package:fms/core/services/home_widget_service.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:fms/core/services/traxroot_credentials_manager.dart';
-import 'package:fms/controllers/navigation_controller.dart';
+import 'package:fms/core/navigation/navigation_controller.dart';
 
 class HomeController extends GetxController {
   final _objectsDatasource = TraxrootObjectsDatasource(
@@ -34,9 +36,8 @@ class HomeController extends GetxController {
   final Rx<GetJobResponseModel?> allJobsResponse = Rx<GetJobResponseModel?>(
     null,
   );
-  final Rx<GetJobResponseModel?> ongoingJobsResponse = Rx<GetJobResponseModel?>(
-    null,
-  );
+  final Rx<ongoing.GetJobOngoingResponseModel?> ongoingJobsResponse =
+      Rx<ongoing.GetJobOngoingResponseModel?>(null);
   final Rx<history.GetJobHistoryResponseModel?> completedJobsResponse =
       Rx<history.GetJobHistoryResponseModel?>(null);
 

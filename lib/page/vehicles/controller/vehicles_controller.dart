@@ -240,6 +240,28 @@ class VehiclesController extends GetxController {
     );
   }
 
+  Future<TraxrootObjectStatusModel?> refreshTrackingStatus(
+    TraxrootObjectStatusModel vehicle,
+  ) async {
+    final objectId = vehicle.id;
+    if (objectId == null) {
+      return null;
+    }
+
+    try {
+      final withSensors = await _objectsDatasource.getObjectWithSensors(
+        objectId: objectId,
+      );
+      if (withSensors != null) {
+        return withSensors;
+      }
+
+      return await _objectsDatasource.getObjectStatus(objectId: objectId);
+    } catch (e) {
+      return null;
+    }
+  }
+
   void updateQuery(String value) {
     query.value = value;
   }

@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:fms/data/datasource/auth_remote_datasource.dart';
+import 'package:fms/data/datasource/profile_remote_datasource.dart';
+import 'package:fms/data/datasource/traxroot_datasource.dart';
+import 'package:fms/data/models/response/profile_response_model.dart';
+import 'package:fms/page/auth/presentation/login_page.dart';
+import 'package:fms/page/home/controller/home_controller.dart';
+import 'package:fms/page/jobs/controller/jobs_controller.dart';
+import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
+
+class ProfileController extends GetxController {
+  final ProfileRemoteDataSource _profileDs = ProfileRemoteDataSource();
+
+  final Rx<ProfileResponseModel?> profile = Rx<ProfileResponseModel?>(null);
+  final RxBool isLoading = true.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchProfile();
+  }
+
+  Future<void> fetchProfile() async {
+    try {
+      final res = await _profileDs.getProfile();
+      profile.value = res;
+    } catch (_) {
+      // Keep silent, same behaviour as previous implementation which only toggled loading flag.
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> logout({
+    required BuildContext context,
+    required bool mounted,
+  }) async {
+    try {
+      // Clear all auth data
+      await AuthRemoteDataSource().logout();
+
+      // Clear Traxroot token cache
+      await TraxrootAuthDatasource().clearCachedToken();
+
+      // Clear controller caches
+      try {
+        if (Get.isRegistered<HomeController>()) {
+          Get.delete<HomeController>();
+        }
+      } catch (_) {}
+
+      try {
+        if (Get.isRegistered<VehiclesController>()) {
+          Get.delete<VehiclesController>();
+        }
+      } catch (_) {}
+
+      try {
+        if (Get.isRegistered<JobsController>()) {
+          Get.delete<JobsController>();
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        SnackbarUtils(
+          text: 'Logout successful',
+          backgroundColor: Colors.green,
+          icon: Icons.logout,
+        ).showSuccessSnackBar(context);
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false,
+        );
+      } else {
+        SnackbarUtils(
+          text: 'Logout failed',
+          backgroundColor: Colors.red,
+          icon: Icons.logout,
+        ).showErrorSnackBar(context);
+      }
+    } catch (_) {
+      if (mounted) {
+        SnackbarUtils(
+          text: 'Logout failed',
+          backgroundColor: Colors.red,
+          icon: Icons.logout,
+        ).showErrorSnackBar(context);
+      }
+    }
+  }
+}

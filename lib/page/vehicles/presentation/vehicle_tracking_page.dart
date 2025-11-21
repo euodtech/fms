@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:get/get.dart';
 
 import '../../../core/widgets/adaptive_map.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
-import '../../../data/datasource/traxroot_datasource.dart';
 import '../../../data/models/traxroot_object_status_model.dart';
+import '../controller/vehicles_controller.dart';
 
 class VehicleTrackingPage extends StatefulWidget {
   final TraxrootObjectStatusModel vehicle;
@@ -17,9 +18,7 @@ class VehicleTrackingPage extends StatefulWidget {
 }
 
 class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
-  final _objectsDatasource = TraxrootObjectsDatasource(
-    TraxrootAuthDatasource(),
-  );
+  late final VehiclesController _vehiclesController;
   TraxrootObjectStatusModel? _vehicle;
   bool _loading = false;
   String? _error;
@@ -30,6 +29,11 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
   void initState() {
     super.initState();
     _vehicle = widget.vehicle;
+    try {
+      _vehiclesController = Get.find<VehiclesController>();
+    } catch (_) {
+      _vehiclesController = Get.put(VehiclesController());
+    }
     _refreshLatestStatus();
   }
 
@@ -40,8 +44,8 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
   }
 
   Future<void> _refreshLatestStatus() async {
-    final id = _vehicle?.id;
-    if (id == null) {
+    final current = _vehicle;
+    if (current?.id == null) {
       return;
     }
 
@@ -52,13 +56,10 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
     });
 
     try {
-      // Try to get object with sensors first, fallback to regular status
-      final latest = await _objectsDatasource
-          .getObjectWithSensors(objectId: id)
-          .catchError((_) => _objectsDatasource.getObjectStatus(objectId: id));
+      final latest = await _vehiclesController.refreshTrackingStatus(current!);
       if (!mounted) return;
       setState(() {
-        _vehicle = latest;
+        _vehicle = latest ?? current;
         _loading = false;
       });
     } catch (e) {
