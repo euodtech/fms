@@ -35,6 +35,8 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
       _vehiclesController = Get.put(VehiclesController());
     }
     _refreshLatestStatus();
+    _autoRefresh = true;
+    _startAutoRefresh();
   }
 
   @override
@@ -186,7 +188,7 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
 
   void _startAutoRefresh() {
     _autoTimer?.cancel();
-    _autoTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted) return;
       if (!_loading) {
         _refreshLatestStatus();

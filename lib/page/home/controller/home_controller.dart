@@ -32,6 +32,12 @@ class HomeController extends GetxController {
   final RxList<MapZoneModel> zones = <MapZoneModel>[].obs;
   final RxList<TraxrootObjectStatusModel> objects =
       <TraxrootObjectStatusModel>[].obs;
+  final RxList<TraxrootObjectStatusModel> movingObjects =
+      <TraxrootObjectStatusModel>[].obs;
+  final Map<int, TraxrootObjectStatusModel> _lastStatusByObjectId = {};
+  final Map<int, DateTime> _lastMovementTimeByObjectId = {};
+  final Map<int, String> _lastMovementEventIdByObjectId = {};
+  final Map<int, String> lastMovementTextByObjectId = {};
   final RxMap<int, String> iconUrlByObjectId = <int, String>{}.obs;
   final Rx<GetJobResponseModel?> allJobsResponse = Rx<GetJobResponseModel?>(
     null,
@@ -246,6 +252,7 @@ class HomeController extends GetxController {
       zones.value = zonesList;
       objects.value = statusList;
       iconUrlByObjectId.value = iconUrlMap;
+      await _detectMovement(statusList);
       allJobsResponse.value = allJobs;
       ongoingJobsResponse.value = ongoingJobs;
       completedJobsResponse.value = completedJobs;
@@ -300,6 +307,208 @@ class HomeController extends GetxController {
         }
       });
     }
+  }
+
+  Future<void> refreshStatuses() async {
+    if (objects.isEmpty) {
+      return;
+    }
+
+    try {
+      // log(
+      //   'refreshStatuses: requesting latest ObjectsStatus for \\${objects.length} tracked objects',
+      //   name: 'HomeController',
+      //   level: 800,
+      // );
+      final allStatuses = await _objectsDatasource.getAllObjectsStatus();
+      if (allStatuses.isEmpty) {
+        // log(
+        //   'refreshStatuses: received 0 statuses from ObjectsStatus endpoint',
+        //   name: 'HomeController',
+        //   level: 900,
+        // );
+        return;
+      }
+
+      final statusByObjectId = <int, TraxrootObjectStatusModel>{};
+      for (final status in allStatuses) {
+        final id = status.id;
+        if (id != null) {
+          statusByObjectId[id] = status;
+        }
+      }
+
+      final updatedStatuses = <TraxrootObjectStatusModel>[];
+      final updatedMarkers = <MapMarkerModel>[];
+      final usedIconUrls = <String>{};
+
+      for (final previous in objects) {
+        final objectId = previous.id;
+        if (objectId == null) {
+          continue;
+        }
+
+        final latest = statusByObjectId[objectId];
+        final composed = latest == null
+            ? previous
+            : previous.copyWith(
+                latitude: latest.latitude,
+                longitude: latest.longitude,
+                speed: latest.speed,
+                course: latest.course,
+                altitude: latest.altitude,
+                status: latest.status,
+                address: latest.address,
+                updatedAt: latest.updatedAt,
+                satellites: latest.satellites,
+                accuracy: latest.accuracy,
+              );
+
+        updatedStatuses.add(composed);
+
+        final iconUrl = iconUrlByObjectId[objectId];
+        if (iconUrl != null && iconUrl.isNotEmpty) {
+          usedIconUrls.add(iconUrl);
+        }
+        final marker = composed.toMarker(icon: iconUrl);
+        if (marker != null) {
+          updatedMarkers.add(marker);
+        }
+      }
+
+      markers.value = updatedMarkers;
+      objects.value = updatedStatuses;
+      await _detectMovement(updatedStatuses);
+      _precacheIcons(usedIconUrls);
+      _updateWidgets();
+      // log(
+      //   'refreshStatuses: updated \\${updatedStatuses.length} objects and \\${updatedMarkers.length} markers',
+      //   name: 'HomeController',
+      //   level: 800,
+      // );
+    } catch (e, st) {
+      log(
+        'refreshStatuses error: \\${e.toString()}',
+        name: 'HomeController',
+        level: 1000,
+      );
+      log(st.toString(), name: 'HomeController', level: 1000);
+      // Ignore refresh errors to keep home map stable
+    }
+  }
+
+  Future<void> _detectMovement(
+    List<TraxrootObjectStatusModel> newStatuses,
+  ) async {
+    final now = DateTime.now();
+
+    if (newStatuses.isEmpty) {
+      return;
+    }
+
+    // Map trackerId -> latest status so we can attach events to objects
+    final statusByTrackerId = <String, TraxrootObjectStatusModel>{};
+    for (final status in newStatuses) {
+      final tracker = status.trackerId?.trim();
+      if (tracker != null && tracker.isNotEmpty) {
+        statusByTrackerId[tracker] = status;
+      }
+    }
+
+    if (statusByTrackerId.isEmpty) {
+      return;
+    }
+
+    final events = await _objectsDatasource.getAllEvents();
+    if (events.isEmpty) {
+      // Just apply expiry if no events are available
+      final expiry = now.subtract(const Duration(seconds: 3));
+      movingObjects.removeWhere((status) {
+        final objectId = status.id;
+        if (objectId == null) {
+          return true;
+        }
+        final ts = _lastMovementTimeByObjectId[objectId];
+        return ts == null || ts.isBefore(expiry);
+      });
+      return;
+    }
+
+    for (final event in events) {
+      final rawTrackerId =
+          event['trackerid'] ?? event['trackerId'] ?? event['TrackerId'];
+      if (rawTrackerId == null) {
+        continue;
+      }
+      final trackerId = rawTrackerId.toString().trim();
+      if (trackerId.isEmpty) {
+        continue;
+      }
+
+      final status = statusByTrackerId[trackerId];
+      if (status == null || status.id == null) {
+        continue;
+      }
+
+      final rawTypeDesc =
+          event['typedesc'] ?? event['typeDesc'] ?? event['TypeDesc'];
+      final rawText = event['text'] ?? event['Text'];
+      final typeDesc = rawTypeDesc?.toString().toUpperCase();
+      final text = rawText?.toString().trim() ?? '';
+
+      final isMove =
+          typeDesc == 'MOVE' || text.toLowerCase().contains('moving');
+      if (!isMove) {
+        continue;
+      }
+
+      final eventId = event['id']?.toString();
+      final objectId = status.id!;
+      if (eventId != null) {
+        final lastEventId = _lastMovementEventIdByObjectId[objectId];
+        if (lastEventId == eventId) {
+          // Same event as before, skip to avoid duplicate notifications
+          continue;
+        }
+        _lastMovementEventIdByObjectId[objectId] = eventId;
+      }
+
+      _lastMovementTimeByObjectId[objectId] = now;
+      if (text.isNotEmpty) {
+        lastMovementTextByObjectId[objectId] = text;
+      } else {
+        lastMovementTextByObjectId[objectId] = 'is moving';
+      }
+
+      log(
+        'Movement event: trackerId=$trackerId, objectId=$objectId, type=$typeDesc, text=${lastMovementTextByObjectId[objectId]}',
+        name: 'HomeController',
+        level: 800,
+      );
+
+      final index = movingObjects.indexWhere((e) => e.id == objectId);
+      if (index >= 0) {
+        movingObjects[index] = status;
+      } else {
+        movingObjects.add(status);
+      }
+    }
+
+    // Expire notifications after 3 seconds from last detection
+    final expiry = now.subtract(const Duration(seconds: 3));
+    movingObjects.removeWhere((status) {
+      final objectId = status.id;
+      if (objectId == null) {
+        return true;
+      }
+      final ts = _lastMovementTimeByObjectId[objectId];
+      return ts == null || ts.isBefore(expiry);
+    });
+  }
+
+  void clearMovementNotification() {
+    movingObjects.clear();
+    lastMovementTextByObjectId.clear();
   }
 
   TraxrootObjectStatusModel? findStatusForMarker(MapMarkerModel marker) {

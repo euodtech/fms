@@ -465,6 +465,8 @@ class JobReportPage extends StatelessWidget {
         return 'Reconnection';
       case 3:
         return 'Short Circuit';
+      case 4:
+        return 'Disconnection';
       default:
         return 'Other';
     }

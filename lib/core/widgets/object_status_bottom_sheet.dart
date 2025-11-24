@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
@@ -50,7 +52,7 @@ class _ObjectStatusBottomSheetState extends State<ObjectStatusBottomSheet> {
     final hasMoreSensors = sensors.length > prioritySensors.length;
 
     // Debug: Print sensor count
-    print(
+    log(
       'ObjectStatusBottomSheet - Total sensors: ${sensors.length}, Priority: ${prioritySensors.length}',
     );
 

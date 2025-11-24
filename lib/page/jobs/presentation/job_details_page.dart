@@ -684,6 +684,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         return 'Reconnection';
       case 3:
         return 'Short Circuit';
+      case 4:
+        return 'Disconnection';
       default:
         return 'Other';
     }

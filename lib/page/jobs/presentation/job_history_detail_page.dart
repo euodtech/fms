@@ -558,7 +558,7 @@ class JobHistoryDetailPage extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ); 
   }
 
   String _getJobTypeString(int? type) {
@@ -569,6 +569,8 @@ class JobHistoryDetailPage extends StatelessWidget {
         return 'Reconnection';
       case 3:
         return 'Short Circuit';
+      case 4:
+        return 'Disconnection';
       default:
         return 'Other';
     }

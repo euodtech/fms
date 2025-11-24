@@ -175,6 +175,35 @@ class TraxrootObjectsDatasource {
     return list.map(TraxrootObjectStatusModel.fromMap).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getAllEvents() async {
+    final uri = Uri.parse(Variables.traxrootObjectsStatusEndpoint);
+    final response = await _authorizedGet(uri);
+
+    log(
+      'status: ${response.statusCode}',
+      name: 'TraxrootObjectsDatasource.getAllEvents',
+      level: 800,
+    );
+
+    if (response.statusCode != 200) {
+      log(
+        response.body,
+        name: 'TraxrootObjectsDatasource.getAllEvents',
+        level: 1200,
+      );
+      return const [];
+    }
+
+    final decoded = _decodeTraxrootBody(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      return const [];
+    }
+
+    final eventsRaw = decoded['events'] ?? decoded['Events'];
+    final eventsList = _normalizeDynamicList(eventsRaw);
+    return eventsList;
+  }
+
   Future<TraxrootObjectStatusModel?> getLatestPoint({
     required int objectId,
   }) async {

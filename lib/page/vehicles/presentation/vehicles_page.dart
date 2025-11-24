@@ -169,6 +169,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
                                   )
                                 : const Icon(Icons.near_me_outlined),
                           ),
+                          
                           IconButton(
                             tooltip: 'Detail',
                             onPressed:
