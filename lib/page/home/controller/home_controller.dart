@@ -39,6 +39,7 @@ class HomeController extends GetxController {
   final Map<int, DateTime> _lastMovementTimeByObjectId = {};
   final Map<int, String> _lastMovementEventIdByObjectId = {};
   final Map<int, String> lastMovementTextByObjectId = {};
+  final Map<int, String> lastMovementTypeByObjectId = {};
   final RxMap<int, String> iconUrlByObjectId = <int, String>{}.obs;
   final Rx<GetJobResponseModel?> allJobsResponse = Rx<GetJobResponseModel?>(
     null,
@@ -572,12 +573,6 @@ class HomeController extends GetxController {
         continue;
       }
 
-      final isMove =
-          typeDesc == 'MOVE' || text.toLowerCase().contains('moving');
-      if (!isMove) {
-        continue;
-      }
-
       final eventId = event['id']?.toString();
       final objectId = status.id!;
       if (eventId != null) {
@@ -596,6 +591,12 @@ class HomeController extends GetxController {
         lastMovementTextByObjectId[objectId] = text;
       } else {
         lastMovementTextByObjectId[objectId] = 'is moving';
+      }
+
+      if (typeDesc != null && typeDesc.isNotEmpty) {
+        lastMovementTypeByObjectId[objectId] = typeDesc;
+      } else {
+        lastMovementTypeByObjectId.remove(objectId);
       }
 
       log(

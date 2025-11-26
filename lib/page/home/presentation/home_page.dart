@@ -66,18 +66,24 @@ class _MovingVehicleBanner extends StatelessWidget {
     required this.status,
     required this.iconUrl,
     required this.message,
+    required this.isMove,
   });
 
   final TraxrootObjectStatusModel status;
   final String? iconUrl;
   final String message;
+  final bool isMove;
 
   @override
   Widget build(BuildContext context) {
     final name = status.name ?? status.trackerId ?? 'Vehicle';
+    final theme = Theme.of(context);
+    final bgColor = isMove
+        ? theme.colorScheme.primaryContainer
+        : theme.colorScheme.secondaryContainer;
 
     return Card(
-      color: Theme.of(context).colorScheme.primaryContainer,
+      color: bgColor,
       child: ListTile(
         leading: const Icon(Icons.directions_car),
         title: Text('$name $message'),
@@ -256,6 +262,18 @@ class _HomeTabState extends State<HomeTab> {
                                                       .id!] ??
                                                   'is moving')
                                             : 'is moving',
+                                        isMove: moving.id != null
+                                            ? ((controller.lastMovementTypeByObjectId[moving
+                                                              .id!] ??
+                                                          '') ==
+                                                      'MOVE' ||
+                                                  (controller
+                                                          .lastMovementTextByObjectId[moving
+                                                              .id!]
+                                                          ?.toLowerCase()
+                                                          .contains('moving') ??
+                                                      false))
+                                            : false,
                                       ),
                                   ],
                                 ),
