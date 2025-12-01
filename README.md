@@ -90,7 +90,7 @@ Some important folders/files:
 
 1. **Clone the repository**
    ```bash
-   git clone <this-repo-url>
+   git clone https://github.com/devopsquetra02/fms.git
    cd fms
    ```
 
