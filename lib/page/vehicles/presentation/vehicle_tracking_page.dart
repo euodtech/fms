@@ -33,7 +33,18 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
   @override
   void initState() {
     super.initState();
+    log(
+      'VehicleTrackingPage - initState: widget.vehicle=${widget.vehicle.id}, '
+      'widget.vehicle.name=${widget.vehicle.name}',
+      name: 'VehicleTrackingPage.initState',
+      level: 800,
+    );
     _vehicle = widget.vehicle;
+    log(
+      'VehicleTrackingPage - initState: _vehicle set to ${_vehicle?.id}',
+      name: 'VehicleTrackingPage.initState',
+      level: 800,
+    );
     try {
       _vehiclesController = Get.find<VehiclesController>();
     } catch (_) {
@@ -51,13 +62,24 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
   }
 
   Future<void> _refreshLatestStatus() async {
+    log(
+      'VehicleTrackingPage - _refreshLatestStatus called, _vehicle=${_vehicle?.id}',
+      name: 'VehicleTrackingPage._refreshLatestStatus',
+      level: 800,
+    );
+
     final current = _vehicle;
-    if (current?.id == null) {
+    if (current == null || current.id == null) {
+      log(
+        'VehicleTrackingPage - Skipping refresh: vehicle or ID is null',
+        name: 'VehicleTrackingPage._refreshLatestStatus',
+        level: 900,
+      );
       return;
     }
 
     log(
-      'VehicleTrackingPage - Refresh requested for objectId=${current!.id}, '
+      'VehicleTrackingPage - Refresh requested for objectId=${current.id}, '
       'lat=${current.latitude}, lng=${current.longitude}, ang=${current.course}',
       name: 'VehicleTrackingPage._refreshLatestStatus',
       level: 800,
@@ -70,7 +92,19 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
     });
 
     try {
-      final latest = await _vehiclesController.refreshTrackingStatus(current);
+      final latest = await _vehiclesController
+          .refreshTrackingStatus(current)
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              log(
+                'VehicleTrackingPage - Refresh timeout after 5 seconds',
+                name: 'VehicleTrackingPage._refreshLatestStatus',
+                level: 1000,
+              );
+              return null;
+            },
+          );
       if (!mounted) return;
       final before = current;
       final after = latest ?? current;
@@ -213,9 +247,20 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
   void _startAutoRefresh() {
     _autoTimer?.cancel();
     _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      log(
+        'VehicleTrackingPage - Auto-refresh timer tick: mounted=$mounted, loading=$_loading',
+        name: 'VehicleTrackingPage._startAutoRefresh',
+        level: 800,
+      );
       if (!mounted) return;
       if (!_loading) {
         _refreshLatestStatus();
+      } else {
+        log(
+          'VehicleTrackingPage - Skipping refresh because _loading is true',
+          name: 'VehicleTrackingPage._startAutoRefresh',
+          level: 900,
+        );
       }
     });
   }

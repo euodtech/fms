@@ -241,6 +241,10 @@ class VehiclesController extends GetxController {
     }
 
     if (status != null) {
+      // Ensure id is always set, even if the API response doesn't include it
+      if (status.id == null) {
+        status = status.copyWith(id: objectId);
+      }
       return status;
     }
 
@@ -301,7 +305,57 @@ class VehiclesController extends GetxController {
         // HomeController not available; fall back to direct API calls below.
       }
 
-      // 1) Try live latest point from /ObjectsStatus/{id}
+      // 1) If HomeController is not available, use getAllObjectsStatus (same source
+      // as HomeController.refreshStatuses) to get real-time data for this vehicle.
+      log(
+        'Vehicle Tracking - HomeController not available, fetching from /ObjectsStatus',
+        name: 'VehiclesController.refreshTrackingStatus',
+        level: 800,
+      );
+
+      final allStatuses = await _objectsDatasource.getAllObjectsStatus();
+      if (allStatuses.isNotEmpty) {
+        // Find status by matching trackerId (same logic as HomeController)
+        final vehicleTrackerId =
+            vehicle.trackerId?.trim() ?? objectId.toString();
+        TraxrootObjectStatusModel? matchedStatus;
+
+        for (final status in allStatuses) {
+          final statusTrackerId = status.trackerId?.trim();
+          if (statusTrackerId != null && statusTrackerId == vehicleTrackerId) {
+            matchedStatus = status;
+            break;
+          }
+        }
+
+        if (matchedStatus != null &&
+            matchedStatus.latitude != null &&
+            matchedStatus.longitude != null) {
+          log(
+            'Vehicle Tracking - Found in /ObjectsStatus: '
+            'lat=${matchedStatus.latitude}, lng=${matchedStatus.longitude}, '
+            'ang=${matchedStatus.course}, speed=${matchedStatus.speed}',
+            name: 'VehiclesController.refreshTrackingStatus',
+            level: 800,
+          );
+
+          // Merge with vehicle data to preserve name, iconId, etc.
+          return vehicle.copyWith(
+            latitude: matchedStatus.latitude,
+            longitude: matchedStatus.longitude,
+            speed: matchedStatus.speed,
+            course: matchedStatus.course,
+            altitude: matchedStatus.altitude,
+            status: matchedStatus.status,
+            address: matchedStatus.address,
+            updatedAt: matchedStatus.updatedAt,
+            satellites: matchedStatus.satellites,
+            accuracy: matchedStatus.accuracy,
+          );
+        }
+      }
+
+      // 2) Fallback: Try per-vehicle /ObjectsStatus/{id}
       final latestPoint = await _objectsDatasource.getLatestPoint(
         objectId: objectId,
       );
@@ -345,7 +399,7 @@ class VehiclesController extends GetxController {
         );
       }
 
-      // 2) Fallback to sensor data if latest point isn't usable
+      // 3) Final fallback to sensor data if latest point isn't usable
       log(
         'Vehicle Tracking - Falling back to sensor/object status for objectId=$objectId',
         name: 'VehiclesController.refreshTrackingStatus',
