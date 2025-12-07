@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/data/datasource/cancel_job_datasource.dart';
 import 'package:fms/data/datasource/driver_get_job_datasource.dart';
 import 'package:fms/data/datasource/finish_job_datasource.dart';
@@ -51,6 +52,17 @@ class JobsController extends GetxController
   final _traxrootObjectsDatasource = TraxrootObjectsDatasource(
     TraxrootAuthDatasource(),
   );
+  final ConnectivityService _connectivityService = ConnectivityService();
+
+  String _toUserMessage(Object e) {
+    final message = e.toString();
+    if (message.contains('SocketException') ||
+        message.contains('Failed host lookup') ||
+        message.contains('Network is unreachable')) {
+      return 'No internet connection. Please check your connection and try again.';
+    }
+    return message;
+  }
 
   @override
   void onClose() {
@@ -72,9 +84,16 @@ class JobsController extends GetxController
     try {
       isLoadingAllJobs.value = true;
       errorAllJobs.value = null;
+      final hasConnection = await _connectivityService.hasConnection;
+      if (!hasConnection) {
+        errorAllJobs.value =
+            'No internet connection. Please check your connection and try again.';
+        allJobsResponse.value = null;
+        return;
+      }
       allJobsResponse.value = await _getJobDatasource.getJob();
     } catch (e) {
-      errorAllJobs.value = e.toString();
+      errorAllJobs.value = _toUserMessage(e);
     } finally {
       isLoadingAllJobs.value = false;
     }
@@ -85,10 +104,17 @@ class JobsController extends GetxController
     try {
       isLoadingHistoryJobs.value = true;
       errorHistoryJobs.value = null;
+      final hasConnection = await _connectivityService.hasConnection;
+      if (!hasConnection) {
+        errorHistoryJobs.value =
+            'No internet connection. Please check your connection and try again.';
+        historyJobsResponse.value = null;
+        return;
+      }
       historyJobsResponse.value = await _getJobHistoryDatasource
           .getJobHistory();
     } catch (e) {
-      errorHistoryJobs.value = e.toString();
+      errorHistoryJobs.value = _toUserMessage(e);
     } finally {
       isLoadingHistoryJobs.value = false;
     }
@@ -99,13 +125,20 @@ class JobsController extends GetxController
     try {
       isLoadingOngoingJobs.value = true;
       errorOngoingJobs.value = null;
+      final hasConnection = await _connectivityService.hasConnection;
+      if (!hasConnection) {
+        errorOngoingJobs.value =
+            'No internet connection. Please check your connection and try again.';
+        ongoingJobsResponse.value = null;
+        return;
+      }
       ongoingJobsResponse.value = await _getJobOngoingDatasource
           .getOngoingJobs();
       final jobs = ongoingJobsResponse.value?.data ?? [];
       final activeIds = jobs.map((job) => job.jobId).whereType<int>().toSet();
       rescheduledJobs.removeWhere((jobId, _) => !activeIds.contains(jobId));
     } catch (e) {
-      errorOngoingJobs.value = e.toString();
+      errorOngoingJobs.value = _toUserMessage(e);
     } finally {
       isLoadingOngoingJobs.value = false;
     }
