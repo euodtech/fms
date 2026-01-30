@@ -11,6 +11,7 @@ class Variables {
     'BASE_URL',
     // defaultValue: 'http://quetraverse.pro/efms/api/myapi',
     defaultValue: 'http://10.0.2.2:8000/myapi',
+    // defaultValue: 'http://192.168.254.110:8000/myapi',
   );
   static const String imageBaseUrl = '$baseUrl/public/storage/';
 

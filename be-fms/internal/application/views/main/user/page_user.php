@@ -263,7 +263,7 @@ $(document).ready(function() {
 
         textHeaderModal.text('Add Rider');
         modal.find('#user_id').val('');
-        modal.find('#user_role').val(''); // gets user_role input
+        modal.find('#user_role').val(''); // gets user_role input -Kian
         modal.find('#fullname').val('');
         modal.find('#email').val('');
         modal.find('#pass').val('');
