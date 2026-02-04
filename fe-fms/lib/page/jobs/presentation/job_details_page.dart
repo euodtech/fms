@@ -49,6 +49,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     super.dispose();
   }
 
+  // ignore: unused_element
   void _shareJobDetails() {
     final job = widget.job;
     final buffer = StringBuffer()
@@ -790,118 +791,201 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
   }
 
   /// Finishes the job, requiring photo evidence and optional notes.
-  Future<void> _finishJob(BuildContext context) async {
-    final jobId = widget.job.jobId as int?;
+  /// /// Finishes the job with enhanced debugging
+Future<void> _finishJob(BuildContext context) async {
+  final jobId = widget.job.jobId as int?;
 
-    if (jobId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Job ID not found')));
-      return;
-    }
-
-    if (_jobsController.rescheduledJobs.containsKey(jobId)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Job already rescheduled. Finish action disabled.',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    final granted = await AppPermission.ensurePhotosPermission(context);
-    if (!granted || !mounted) return;
-
-    final source = await _showImageSourceSheet(context);
-    if (!mounted || source == null) {
-      return;
-    }
-
-    final picker = ImagePicker();
-    final images = await _pickImages(context, picker, source);
-
-    if (images.isEmpty || images.length < 2) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Select minimum 2 photos')));
-      return;
-    }
-
-    final approved = await _showImagePreview(context, images);
-    if (!approved) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Upload canceled')));
-      return;
-    }
-
-    final notesResult = await _askForNotes(context);
+  // --- Validation Checks ---
+  if (jobId == null) {
     if (!mounted) return;
-    if (notesResult == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Finish job canceled')));
-      return;
-    }
-
-    final trimmedNotes = notesResult.trim();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Job ID not found'))
     );
-
-    try {
-      final List<String> imagesBase64 = [];
-      for (final x in images) {
-        final bytes = await x.readAsBytes();
-        imagesBase64.add(base64Encode(bytes));
-      }
-
-      final response = await _jobsController.finishJob(
-        jobId: jobId,
-        imagesBase64: imagesBase64,
-        notes: trimmedNotes.isEmpty ? null : trimmedNotes,
-      );
-
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              response.message ?? 'Success Finish The Job',
-              style: const TextStyle(color: Colors.white),
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        log(e.toString());
-        Navigator.of(context).pop();
-
-        // Extract error message from exception
-        String errorMessage = 'Failed to finish job';
-        final exceptionMessage = e.toString();
-        if (exceptionMessage.startsWith('Exception: ')) {
-          errorMessage = exceptionMessage.substring('Exception: '.length);
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
-      }
-    }
+    return;
   }
 
+  if (_jobsController.rescheduledJobs.containsKey(jobId)) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Job already rescheduled. Finish action disabled.', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    return;
+  }
+
+  // --- Permissions & Source ---
+  final granted = await AppPermission.ensurePhotosPermission(context);
+  if (!granted || !mounted) return;
+
+  final source = await _showImageSourceSheet(context);
+  if (!mounted || source == null) return;
+
+  // --- Image Picking ---
+  final picker = ImagePicker();
+  final images = await _pickImages(context, picker, source);
+
+  if (images.isEmpty || images.length < 2) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Select minimum 2 photos'))
+    );
+    return;
+  }
+
+  // --- Preview ---
+  final approved = await _showImagePreview(context, images);
+  if (!approved) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Upload canceled'))
+    );
+    return;
+  }
+
+  // --- Notes Input ---
+  final notesResult = await _askForNotes(context);
+  if (!mounted) return;
+  
+  if (notesResult == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Finish job canceled'))
+    );
+    return;
+  }
+
+  final trimmedNotes = notesResult.trim();
+
+  // Dismiss keyboard explicitly
+  FocusScope.of(context).unfocus();
+  
+  // Wait for keyboard dismissal animation
+  await Future.delayed(const Duration(milliseconds: 400));
+  if (!mounted) return;
+
+  // Show loading dialog
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => WillPopScope(
+      onWillPop: () async => false,
+      child: const Center(child: CircularProgressIndicator()),
+    ),
+  );
+
+  try {
+    // ============ DEBUGGING SECTION START ============
+    log('========== FINISH JOB DEBUG ==========');
+    log('Job ID: $jobId');
+    log('Number of images: ${images.length}');
+    log('Notes: ${trimmedNotes.isEmpty ? "none" : trimmedNotes}');
+    
+    // Encode images with size checking
+    final List<String> imagesBase64 = [];
+    
+    for (int i = 0; i < images.length; i++) {
+      final bytes = await images[i].readAsBytes();
+      final sizeInMB = bytes.length / (1024 * 1024);
+      log('Image ${i + 1}/${images.length} - Size: ${sizeInMB.toStringAsFixed(2)} MB');
+      
+      // Check if image is too large (adjust limit as needed)
+      if (sizeInMB > 10) {
+        throw Exception('Image ${i + 1} is too large: ${sizeInMB.toStringAsFixed(1)}MB. Maximum is 10MB');
+      }
+      
+      imagesBase64.add(base64Encode(bytes));
+      log('Image ${i + 1} encoded successfully');
+    }
+
+    log('All images encoded. Starting API call...');
+    // ============ DEBUGGING SECTION END ============
+
+    final response = await _jobsController.finishJob(
+      jobId: jobId,
+      imagesBase64: imagesBase64,
+      notes: trimmedNotes.isEmpty ? null : trimmedNotes,
+    ).timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        throw Exception('Request timeout after 60 seconds - images might be too large or poor network connection');
+      },
+    );
+
+    // ============ DEBUGGING: Log Response ============
+    log('API Response received');
+    log('Response success: ${response.success}');
+    log('Response message: ${response.message}');
+    log('======================================');
+    // =================================================
+
+    if (!mounted) return;
+    
+    // Close loading dialog
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Check if response indicates failure
+    if (response.success != true) {
+      throw Exception(response.message ?? 'Server returned failure status');
+    }
+    
+    // Small delay before showing snackbar
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response.message ?? 'Success Finish The Job',
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+    // Close Job Details Page
+    Navigator.pop(context, true);
+    
+  } catch (e, stackTrace) {
+    // ============ ENHANCED ERROR HANDLING ============
+    if (!mounted) return;
+    
+    log('========== ERROR DETAILS ==========');
+    log('Error: $e');
+    log('Stack Trace: $stackTrace');
+    log('===================================');
+    
+    // Close loading dialog
+    Navigator.of(context, rootNavigator: true).pop();
+
+    String errorMessage = 'Failed to finish job';
+    
+    // Better error extraction
+    if (e is Exception) {
+      final exceptionStr = e.toString();
+      if (exceptionStr.startsWith('Exception: ')) {
+        errorMessage = exceptionStr.substring('Exception: '.length);
+      } else {
+        errorMessage = exceptionStr;
+      }
+    } else {
+      errorMessage = e.toString();
+    }
+
+    // Small delay before showing error
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(errorMessage),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5), // Show error longer
+      ),
+    );
+    // =================================================
+  }
+}
   Future<ImageSource?> _showImageSourceSheet(BuildContext context) async {
     return showModalBottomSheet<ImageSource>(
       context: context,
@@ -1049,7 +1133,9 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
   }
 
   Future<String?> _askForNotes(BuildContext context) async {
-    final controller = TextEditingController();
+  final controller = TextEditingController();
+  
+  try {
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1077,9 +1163,16 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         ],
       ),
     );
-    controller.dispose();
+    
+    // CRITICAL: Wait for dialog close animation before disposing
+    await Future.delayed(const Duration(milliseconds: 300));
+    
     return result;
+  } finally {
+    // Dispose in finally block to ensure it always happens
+    controller.dispose();
   }
+}
 
   Future<String?> _askCancelReason(BuildContext context) async {
     final suggestions = <String>[
