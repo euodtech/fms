@@ -17,70 +17,107 @@ class AuthRemoteDataSource {
   /// Logs in the user with email and password.
   ///
   /// Returns [AuthResponseModel] if successful.
-  Future<AuthResponseModel> login({
-    required String email,
-    required String password,
-  }) async {
-    final uri = Uri.parse(Variables.loginEndpoint);
-    final response = await http.post(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode(<String, dynamic>{'email': email, 'password': password}),
-    );
-    log(
-      response.statusCode.toString(),
-      name: 'AuthRemoteDataSource',
-      level: 800,
-    );
+Future<AuthResponseModel> login({
+  required String email,
+  required String password,
+}) async {
+  final uri = Uri.parse(Variables.loginEndpoint);
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final model = AuthResponseModel.fromJson(response.body);
+  final response = await http.post(
+    uri,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: jsonEncode(<String, dynamic>{'email': email, 'password': password}),
+  );
 
-      // Try to extract role from response Data and persist it for NavBar configuration
-      try {
-        final decoded = json.decode(response.body) as Map<String, dynamic>;
-        final data = decoded['Data'] as Map<String, dynamic>?;
+  log(
+    response.statusCode.toString(),
+    name: 'AuthRemoteDataSource',
+    level: 800,
+  );
+
+  if (response.statusCode >= 200 && response.statusCode < 300) {
+    final model = AuthResponseModel.fromJson(response.body);
+
+    // Try to extract role and CompanyLogo from response Data and persist
+    try {
+      final decoded = json.decode(response.body) as Map<String, dynamic>;
+      final data = decoded['Data'] as Map<String, dynamic>?;
+
+      if (data != null) {
+        final prefs = await SharedPreferences.getInstance();
+
+        // --- Persist user role ---
         String? role;
-        if (data != null) {
-          if (data['role'] != null) {role = data['role'].toString();}
-          else if (data['Role'] != null) {role = data['Role'].toString();}
-          else if (data['UserRole'] != null) {role = data['UserRole'].toString();}
-          else if (data['userRole'] != null) {role = data['userRole'].toString();}
-          else if (data['user_role'] != null) {role = data['user_role'].toString();}
-          else if (data['role_name'] != null) {role = data['role_name'].toString();}
-          else if (data['RoleName'] != null) {role = data['RoleName'].toString();}
-        }
+        if (data['role'] != null) role = data['role'].toString();
+        else if (data['Role'] != null) role = data['Role'].toString();
+        else if (data['UserRole'] != null) role = data['UserRole'].toString();
+        else if (data['userRole'] != null) role = data['userRole'].toString();
+        else if (data['user_role'] != null) role = data['user_role'].toString();
+        else if (data['role_name'] != null) role = data['role_name'].toString();
+        else if (data['RoleName'] != null) role = data['RoleName'].toString();
+
         if (role != null && role.trim().isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
           final normalized = role.trim().toLowerCase();
           await prefs.setString(Variables.prefUserRole, normalized);
-          log('Persisted user role: $normalized', name: 'AuthRemoteDataSource', level: 800);
+          log('Persisted user role: $normalized',
+              name: 'AuthRemoteDataSource', level: 800);
         }
-      } catch (_) {}
 
-      if (model.success == true && model.data?.apiKey != null) {
-        return model;
-      } else {
-        throw Exception('Login failed: invalid response');
-      }
-    } else {
-      HttpErrorHandler.handleResponse(response.statusCode, response.body);
-      String message = 'Login failed, please try again later';
-      log(response.body, name: 'AuthRemoteDataSource', level: 1200);
-      try {
-        final decoded = json.decode(response.body) as Map<String, dynamic>;
-        if (decoded['Message'] != null) {
-          message = decoded['Message'].toString();
-        } else if (decoded['message'] != null) {
-          message = decoded['message'].toString();
+        // --- Persist CompanyLogo ---
+        log('Login Data keys: ${data.keys.toList()}',
+            name: 'AuthRemoteDataSource', level: 800);
+
+        String? companyLogo;
+        if (data['CompanyLogo'] != null) companyLogo = data['CompanyLogo'].toString();
+        else if (data['companyLogo'] != null) companyLogo = data['companyLogo'].toString();
+        else if (data['company_logo'] != null) companyLogo = data['company_logo'].toString();
+        else if (data['Logo'] != null) companyLogo = data['Logo'].toString();
+        else if (data['logo'] != null) companyLogo = data['logo'].toString();
+
+        if (companyLogo != null && companyLogo.isNotEmpty) {
+          await prefs.setString(Variables.companyLogo, companyLogo);
+          log('Persisted company logo: $companyLogo',
+              name: 'AuthRemoteDataSource', level: 800);
+        } else {
+          log('CompanyLogo not found in login Data',
+              name: 'AuthRemoteDataSource', level: 800);
         }
-      } catch (_) {}
-      throw Exception(message);
+
+        // You can also persist other fields if needed:
+        // await prefs.setString(Variables.prefApiKey, data['ApiKey']);
+        // await prefs.setInt(Variables.prefUserID, data['UserID']);
+        // await prefs.setString(Variables.prefCompany, data['Company']);
+        // await prefs.setInt(Variables.prefCompanyID, data['CompanyID']);
+        // await prefs.setString(Variables.prefCompanyLabel, data['CompanyLabel']);
+      }
+    } catch (e) {
+      log('Error parsing login data: $e', name: 'AuthRemoteDataSource', level: 1200);
     }
+
+    if (model.success == true && model.data?.apiKey != null) {
+      return model;
+    } else {
+      throw Exception('Login failed: invalid response');
+    }
+  } else {
+    HttpErrorHandler.handleResponse(response.statusCode, response.body);
+
+    String message = 'Login failed, please try again later';
+    log(response.body, name: 'AuthRemoteDataSource', level: 1200);
+
+    try {
+      final decoded = json.decode(response.body) as Map<String, dynamic>;
+      if (decoded['Message'] != null) message = decoded['Message'].toString();
+      else if (decoded['message'] != null) message = decoded['message'].toString();
+    } catch (_) {}
+
+    throw Exception(message);
   }
+}
+
 
   /// Sends a forgot password request.
   Future<String> forgotPassword({required String email}) async {

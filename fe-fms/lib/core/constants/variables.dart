@@ -88,4 +88,7 @@ class Variables {
   static const String prefTraxrootToken = 'TraxrootAccessToken';
   static const String prefTraxrootTokenExpiry = 'TraxrootAccessTokenExpiry';
   static const String prefUserRole = 'UserRole';
+
+
+  static const String companyLogo = 'CompanyLogo';
 }
