@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:fms/core/utils/timezone_util.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -349,7 +350,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                 ),
                               if (rescheduledDate != null)
                                 buildPill(
-                                  'Rescheduled: ${DateFormat('EEE, dd MMM yyyy HH:mm').format(rescheduledDate.toLocal())}',
+                                  'Rescheduled: ${DateFormat('EEE, dd MMM yyyy HH:mm').format(ManilaTimezone.convert(rescheduledDate))}',
                                   icon: Icons.event_repeat,
                                   foreground: Colors.white,
                                   background: Colors.orange.withValues(
@@ -697,7 +698,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
   String _formatDate(dynamic value) {
     final dateTime = _parseDate(value);
     if (dateTime == null) return 'N/A';
-    return DateFormat('EEE, dd MMM yyyy').format(dateTime);
+    return DateFormat('EEE, dd MMM yyyy').format(ManilaTimezone.convert(dateTime));
   }
 
   Future<void> _callPhone(String rawNumber) async {
@@ -1271,7 +1272,7 @@ Future<void> _finishJob(BuildContext context) async {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    DateTime selectedDate = ManilaTimezone.now().add(const Duration(days: 1));
     TimeOfDay selectedTime = TimeOfDay.now();
     final notesController = _rescheduleNotesController;
     notesController.clear();
@@ -1328,8 +1329,8 @@ Future<void> _finishJob(BuildContext context) async {
                                 final picked = await showDatePicker(
                                   context: dialogContext,
                                   initialDate: selectedDate,
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(
+                                  firstDate: ManilaTimezone.now(),
+                                  lastDate: ManilaTimezone.now().add(
                                     const Duration(days: 365),
                                   ),
                                 );
@@ -1499,7 +1500,7 @@ Future<void> _finishJob(BuildContext context) async {
                                 );
 
                                 if (scheduledDateTime.isBefore(
-                                  DateTime.now(),
+                                  ManilaTimezone.now(),
                                 )) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(

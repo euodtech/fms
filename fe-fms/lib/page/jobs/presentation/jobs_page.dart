@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:fms/core/utils/timezone_util.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/jobs/presentation/job_details_page.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart'
@@ -89,7 +90,7 @@ class JobsPage extends StatelessWidget {
       }
 
       final allJobs = controller.allJobsResponse.value!.data!;
-      final now = DateTime.now();
+      final now = ManilaTimezone.now();
       final today = DateTime(now.year, now.month, now.day);
 
       final visibleJobs = allJobs.where((job) {
@@ -193,7 +194,7 @@ class JobsPage extends StatelessWidget {
                 if (rescheduledDate != null)
                   _buildStatusBadge(
                     label:
-                        'Rescheduled · ${DateFormat('dd MMM, HH:mm').format(rescheduledDate.toLocal())}',
+                        'Rescheduled · ${DateFormat('dd MMM, HH:mm').format(ManilaTimezone.convert(rescheduledDate))}',
                     color: Colors.orange,
                     icon: Icons.event_repeat,
                   ),
@@ -337,7 +338,7 @@ class JobsPage extends StatelessWidget {
   String _formatDate(dynamic value) {
     final dateTime = _parseDate(value);
     if (dateTime == null) return 'N/A';
-    return DateFormat('EEE, dd MMM yyyy').format(dateTime);
+    return DateFormat('EEE, dd MMM yyyy').format(ManilaTimezone.convert(dateTime));
   }
 
   /// Parses different possible date representations (DateTime, String, int)

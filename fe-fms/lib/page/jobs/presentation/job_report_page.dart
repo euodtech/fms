@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:fms/core/utils/timezone_util.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
@@ -476,7 +477,7 @@ class JobReportPage extends StatelessWidget {
   String _formatDate(dynamic value) {
     final dateTime = _parseDate(value);
     if (dateTime == null) return 'N/A';
-    return DateFormat('EEE, dd MMM yyyy').format(dateTime);
+    return DateFormat('EEE, dd MMM yyyy').format(ManilaTimezone.convert(dateTime));
   }
 
   DateTime? _parseDate(dynamic value) {

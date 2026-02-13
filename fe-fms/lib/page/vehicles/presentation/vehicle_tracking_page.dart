@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/utils/timezone_util.dart';
 
 import '../../../core/widgets/adaptive_map.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
@@ -202,7 +203,7 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
                       Text(vehicle.address!),
                     if (vehicle?.updatedAt != null)
                       Text(
-                        'Updated: ${vehicle!.updatedAt!.toLocal()}',
+                        'Updated: ${ManilaTimezone.convert(vehicle!.updatedAt!)}',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     if (_error != null)

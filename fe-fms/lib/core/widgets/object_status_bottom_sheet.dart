@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/timezone_util.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
 import 'package:fms/data/models/traxroot_sensor_model.dart';
 
@@ -207,7 +208,7 @@ class _ObjectStatusBottomSheetState extends State<ObjectStatusBottomSheet> {
   }
 
   String _formatDateTime(DateTime value) {
-    final local = value.toLocal();
+    final local = ManilaTimezone.convert(value);
     final two = (int v) => v.toString().padLeft(2, '0');
     return '${local.year}-${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
   }
