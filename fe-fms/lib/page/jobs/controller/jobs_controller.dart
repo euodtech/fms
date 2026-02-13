@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:fms/core/services/connectivity_service.dart';
+import 'package:fms/core/services/image_storage_service.dart';
 import 'package:fms/data/datasource/cancel_job_datasource.dart';
 import 'package:fms/data/datasource/driver_get_job_datasource.dart';
 import 'package:fms/data/datasource/finish_job_datasource.dart';
@@ -9,6 +11,7 @@ import 'package:fms/data/datasource/get_job_history_datasource.dart';
 import 'package:fms/data/datasource/get_job_ongoing_datasource.dart';
 import 'package:fms/data/datasource/reschedule_job_datasource.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
+import 'package:fms/data/models/offline_queue_item.dart';
 import 'package:fms/data/models/response/cancel_job_response_model.dart';
 import 'package:fms/data/models/response/driver_get_job_response_model.dart';
 import 'package:fms/data/models/response/finish_job_response_model.dart';
@@ -19,6 +22,8 @@ import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
 import 'package:fms/data/models/response/reschedule_job_response_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
+import 'package:fms/data/repository/job_cache_repository.dart';
+import 'package:fms/data/repository/offline_queue_repository.dart';
 
 /// Controller for managing job lists (all, ongoing, history) and job actions.
 class JobsController extends GetxController
@@ -52,7 +57,28 @@ class JobsController extends GetxController
   final _traxrootObjectsDatasource = TraxrootObjectsDatasource(
     TraxrootAuthDatasource(),
   );
-  final ConnectivityService _connectivityService = ConnectivityService();
+
+  ConnectivityService get _connectivityService => Get.find<ConnectivityService>();
+
+  final OfflineQueueRepository _offlineQueueRepo = OfflineQueueRepository();
+  final JobCacheRepository _jobCacheRepo = JobCacheRepository();
+  final RxList<OfflineQueueItem> pendingQueueItems = <OfflineQueueItem>[].obs;
+
+  /// Reads the reactive connectivity state (instant, no network call).
+  bool get _isOnline => _connectivityService.isConnected.value;
+
+  /// Safely checks connectivity — prefers the reactive value but falls back
+  /// to an async check. Returns false on any error instead of throwing.
+  Future<bool> _checkConnectivity() async {
+    // Fast path: reactive value is already known
+    if (!_isOnline) return false;
+    // Double-check with async call, but catch socket errors
+    try {
+      return await _connectivityService.hasConnection;
+    } catch (_) {
+      return false;
+    }
+  }
 
   String _toUserMessage(Object e) {
     final message = e.toString();
@@ -77,6 +103,7 @@ class JobsController extends GetxController
     fetchAllJobs();
     fetchOngoingJobs();
     fetchHistoryJobs();
+    _refreshPendingQueue();
   }
 
   /// Fetches the list of all jobs.
@@ -84,7 +111,7 @@ class JobsController extends GetxController
     try {
       isLoadingAllJobs.value = true;
       errorAllJobs.value = null;
-      final hasConnection = await _connectivityService.hasConnection;
+      final hasConnection = await _checkConnectivity();
       if (!hasConnection) {
         errorAllJobs.value =
             'No internet connection. Please check your connection and try again.';
@@ -104,7 +131,7 @@ class JobsController extends GetxController
     try {
       isLoadingHistoryJobs.value = true;
       errorHistoryJobs.value = null;
-      final hasConnection = await _connectivityService.hasConnection;
+      final hasConnection = await _checkConnectivity();
       if (!hasConnection) {
         errorHistoryJobs.value =
             'No internet connection. Please check your connection and try again.';
@@ -120,23 +147,38 @@ class JobsController extends GetxController
     }
   }
 
-  /// Fetches the list of ongoing jobs.
+  /// Fetches the list of ongoing jobs, with offline cache fallback.
   Future<void> fetchOngoingJobs() async {
     try {
       isLoadingOngoingJobs.value = true;
       errorOngoingJobs.value = null;
-      final hasConnection = await _connectivityService.hasConnection;
+      final hasConnection = await _checkConnectivity();
+
       if (!hasConnection) {
-        errorOngoingJobs.value =
-            'No internet connection. Please check your connection and try again.';
-        ongoingJobsResponse.value = null;
+        // Offline: load from cache
+        final cached = await _jobCacheRepo.getCachedOngoingJobs();
+        if (cached.isNotEmpty) {
+          ongoingJobsResponse.value = ongoing.GetJobOngoingResponseModel(
+            success: true,
+            data: cached,
+          );
+        } else {
+          errorOngoingJobs.value =
+              'No internet connection and no cached data.';
+          ongoingJobsResponse.value = null;
+        }
+        await _refreshPendingQueue();
         return;
       }
+
       ongoingJobsResponse.value = await _getJobOngoingDatasource
           .getOngoingJobs();
       final jobs = ongoingJobsResponse.value?.data ?? [];
       final activeIds = jobs.map((job) => job.jobId).whereType<int>().toSet();
       rescheduledJobs.removeWhere((jobId, _) => !activeIds.contains(jobId));
+
+      // Cache for offline use
+      await _jobCacheRepo.cacheOngoingJobs(jobs);
     } catch (e) {
       errorOngoingJobs.value = _toUserMessage(e);
     } finally {
@@ -147,6 +189,7 @@ class JobsController extends GetxController
   /// Refreshes all job lists.
   Future<void> refresh() async {
     await Future.wait([fetchAllJobs(), fetchOngoingJobs(), fetchHistoryJobs()]);
+    await _refreshPendingQueue();
   }
 
   /// Marks a job as rescheduled locally.
@@ -165,41 +208,148 @@ class JobsController extends GetxController
   }
 
   /// Finishes a job with optional images and notes.
+  /// When offline, saves images to disk and enqueues for later sync.
   Future<FinishJobResponseModel> finishJob({
     required int jobId,
     required List<String> imagesBase64,
     String? notes,
-  }) {
-    return _finishJobDatasource.finishJob(
+    List<XFile>? originalImageFiles,
+  }) async {
+    final isOnline = _isOnline;
+
+    if (isOnline) {
+      final response = await _finishJobDatasource.finishJob(
+        jobId: jobId,
+        imagesBase64: imagesBase64,
+        notes: notes,
+      );
+      if (response.success == true) {
+        await _jobCacheRepo.removeJob(jobId);
+      }
+      return response;
+    }
+
+    // OFFLINE: save images to disk, enqueue
+    if (await _offlineQueueRepo.hasQueuedActionForJob(jobId)) {
+      return FinishJobResponseModel(
+        success: false,
+        message: 'This job already has a pending offline action.',
+      );
+    }
+
+    List<String> savedPaths = [];
+    if (originalImageFiles != null && originalImageFiles.isNotEmpty) {
+      savedPaths = await ImageStorageService.saveImages(
+        jobId: jobId,
+        images: originalImageFiles,
+      );
+    }
+
+    await _offlineQueueRepo.enqueue(OfflineQueueItem(
       jobId: jobId,
-      imagesBase64: imagesBase64,
-      notes: notes,
+      actionType: OfflineActionType.finish,
+      payload: {'job_id': jobId, 'notes': notes ?? ''},
+      imagePaths: savedPaths,
+      status: OfflineQueueStatus.pending,
+      createdAt: DateTime.now(),
+    ));
+
+    await _refreshPendingQueue();
+    return FinishJobResponseModel(
+      success: true,
+      message: 'Job saved locally. Will sync when online.',
     );
   }
 
   /// Reschedules a job to a new date.
+  /// When offline, enqueues for later sync.
   Future<RescheduleJobResponseModel> rescheduleJob({
     required int jobId,
     required DateTime newDate,
     String? notes,
-  }) {
-    return _rescheduleJobDatasource.rescheduleJob(
+  }) async {
+    final isOnline = _isOnline;
+
+    if (isOnline) {
+      return _rescheduleJobDatasource.rescheduleJob(
+        jobId: jobId,
+        newDate: newDate,
+        notes: notes,
+      );
+    }
+
+    // OFFLINE
+    if (await _offlineQueueRepo.hasQueuedActionForJob(jobId)) {
+      return RescheduleJobResponseModel(
+        success: false,
+        message: 'This job already has a pending offline action.',
+      );
+    }
+
+    await _offlineQueueRepo.enqueue(OfflineQueueItem(
       jobId: jobId,
-      newDate: newDate,
-      notes: notes,
+      actionType: OfflineActionType.reschedule,
+      payload: {
+        'job_id': jobId,
+        'new_date': newDate.toIso8601String(),
+        'notes': notes ?? '',
+      },
+      status: OfflineQueueStatus.pending,
+      createdAt: DateTime.now(),
+    ));
+
+    await _refreshPendingQueue();
+    return RescheduleJobResponseModel(
+      success: true,
+      message: 'Reschedule saved locally. Will sync when online.',
     );
   }
 
   /// Cancels a job with a reason.
+  /// When offline, enqueues for later sync.
   Future<CancelJobResponseModel> cancelJob({
     required int jobId,
     required String reason,
-  }) {
-    return _cancelJobDatasource.cancelJob(jobId: jobId, reason: reason);
+  }) async {
+    final isOnline = _isOnline;
+
+    if (isOnline) {
+      return _cancelJobDatasource.cancelJob(jobId: jobId, reason: reason);
+    }
+
+    // OFFLINE
+    if (await _offlineQueueRepo.hasQueuedActionForJob(jobId)) {
+      return CancelJobResponseModel(
+        success: false,
+        message: 'This job already has a pending offline action.',
+      );
+    }
+
+    await _offlineQueueRepo.enqueue(OfflineQueueItem(
+      jobId: jobId,
+      actionType: OfflineActionType.cancel,
+      payload: {'job_id': jobId, 'reason': reason},
+      status: OfflineQueueStatus.pending,
+      createdAt: DateTime.now(),
+    ));
+
+    await _refreshPendingQueue();
+    return CancelJobResponseModel(
+      success: true,
+      message: 'Cancellation saved locally. Will sync when online.',
+    );
   }
 
   /// Gets the Traxroot status for a specific object/vehicle.
   Future<TraxrootObjectStatusModel> getObjectStatusForJob(int objectId) {
     return _traxrootObjectsDatasource.getObjectStatus(objectId: objectId);
+  }
+
+  /// Check if a job has a pending offline action.
+  bool isJobPendingUpload(int jobId) =>
+      pendingQueueItems.any((item) => item.jobId == jobId);
+
+  Future<void> _refreshPendingQueue() async {
+    pendingQueueItems.value = await _offlineQueueRepo.getAllItems();
   }
 }

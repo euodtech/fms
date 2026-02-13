@@ -5,11 +5,14 @@ import 'package:get/get.dart';
 import 'package:fms/core/constants/variables.dart';
 import 'package:fms/core/network/api_client.dart';
 import 'package:fms/core/services/subscription.dart';
+import 'package:fms/core/services/sync_service.dart';
 import 'package:fms/core/services/traxroot_credentials_manager.dart';
 import 'package:fms/core/storage/secure_storage.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
+import 'package:fms/data/repository/job_cache_repository.dart';
+import 'package:fms/data/repository/offline_queue_repository.dart';
 import 'package:fms/data/models/traxroot_driver_model.dart';
 import 'package:fms/data/models/traxroot_geozone_model.dart';
 import 'package:fms/data/models/traxroot_icon_model.dart';
@@ -58,6 +61,15 @@ class AuthController extends GetxController {
               ? Plan.pro
               : Plan.basic;
         }
+
+        // Trigger pending sync if any queued items exist
+        Future.microtask(() {
+          try {
+            if (Get.isRegistered<SyncService>()) {
+              Get.find<SyncService>().syncAll();
+            }
+          } catch (_) {}
+        });
       } else {
         isAuthenticated.value = false;
       }
@@ -211,6 +223,12 @@ class AuthController extends GetxController {
       if (Get.isRegistered<JobsController>()) {
         Get.delete<JobsController>();
       }
+    } catch (_) {}
+
+    // Clear offline data to prevent data leaking between users
+    try {
+      await OfflineQueueRepository().deleteAll();
+      await JobCacheRepository().clearAll();
     } catch (_) {}
 
     // Redirect to login page

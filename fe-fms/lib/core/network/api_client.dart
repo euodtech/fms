@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,6 +20,12 @@ class ApiClient {
     // Prevent multiple simultaneous validations
     if (_isValidating || _hasLoggedOut) return !_hasLoggedOut;
     _isValidating = true;
+
+    // Skip validation if offline — no point making a network call
+    try {
+      final connectivity = Get.find<ConnectivityService>();
+      if (!connectivity.isConnected.value) return true;
+    } catch (_) {} // Service not yet initialized, proceed normally
 
     try {
       final prefs = await SharedPreferences.getInstance();

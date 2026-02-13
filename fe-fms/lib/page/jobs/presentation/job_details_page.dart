@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -91,6 +92,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         jobIdValue != null &&
         _jobsController.rescheduledJobs.containsKey(jobIdValue);
     final bool isRescheduledStatus = isOngoing && job.status == 3;
+    final bool hasPendingAction =
+        jobIdValue != null && _jobsController.isJobPendingUpload(jobIdValue);
 
     Widget buildPill(
       String label, {
@@ -623,7 +626,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                   if (isOngoing)
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: hasRescheduled
+                        onPressed: hasRescheduled || hasPendingAction
                             ? null
                             : () {
                                 _cancelJob(context);
@@ -648,7 +651,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: isOngoing && hasRescheduled
+                      onPressed: (isOngoing && hasRescheduled) || hasPendingAction
                           ? null
                           : () {
                               isOngoing
@@ -656,7 +659,9 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                   : _startJob(context);
                             },
                       icon: const Icon(Icons.play_arrow_rounded),
-                      label: Text(isOngoing ? 'Finish Job' : 'Start Job'),
+                      label: Text(hasPendingAction
+                          ? 'Pending Upload'
+                          : (isOngoing ? 'Finish Job' : 'Start Job')),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -876,31 +881,66 @@ Future<void> _finishJob(BuildContext context) async {
   );
 
   try {
-    // ============ DEBUGGING SECTION START ============
+    // Check connectivity to decide online/offline path
+    final connectivity = Get.find<ConnectivityService>();
+    final isOnline = connectivity.isConnected.value;
+
+    if (!isOnline) {
+      // OFFLINE: skip base64 encoding, save raw files for later sync
+      log('Offline mode: saving job $jobId locally');
+      final response = await _jobsController.finishJob(
+        jobId: jobId,
+        imagesBase64: [],
+        notes: trimmedNotes.isEmpty ? null : trimmedNotes,
+        originalImageFiles: images,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      if (response.success != true) {
+        throw Exception(response.message ?? 'Failed to save job offline');
+      }
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response.message ?? 'Job saved locally. Will sync when online.',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+
+      Navigator.pop(context, true);
+      return;
+    }
+
+    // ONLINE: existing path
     log('========== FINISH JOB DEBUG ==========');
     log('Job ID: $jobId');
     log('Number of images: ${images.length}');
     log('Notes: ${trimmedNotes.isEmpty ? "none" : trimmedNotes}');
-    
-    // Encode images with size checking
+
     final List<String> imagesBase64 = [];
-    
+
     for (int i = 0; i < images.length; i++) {
       final bytes = await images[i].readAsBytes();
       final sizeInMB = bytes.length / (1024 * 1024);
       log('Image ${i + 1}/${images.length} - Size: ${sizeInMB.toStringAsFixed(2)} MB');
-      
-      // Check if image is too large (adjust limit as needed)
+
       if (sizeInMB > 10) {
         throw Exception('Image ${i + 1} is too large: ${sizeInMB.toStringAsFixed(1)}MB. Maximum is 10MB');
       }
-      
+
       imagesBase64.add(base64Encode(bytes));
       log('Image ${i + 1} encoded successfully');
     }
 
     log('All images encoded. Starting API call...');
-    // ============ DEBUGGING SECTION END ============
 
     final response = await _jobsController.finishJob(
       jobId: jobId,
@@ -913,27 +953,22 @@ Future<void> _finishJob(BuildContext context) async {
       },
     );
 
-    // ============ DEBUGGING: Log Response ============
     log('API Response received');
     log('Response success: ${response.success}');
     log('Response message: ${response.message}');
     log('======================================');
-    // =================================================
 
     if (!mounted) return;
-    
-    // Close loading dialog
+
     Navigator.of(context, rootNavigator: true).pop();
-    
-    // Check if response indicates failure
+
     if (response.success != true) {
       throw Exception(response.message ?? 'Server returned failure status');
     }
-    
-    // Small delay before showing snackbar
+
     await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -943,25 +978,65 @@ Future<void> _finishJob(BuildContext context) async {
         backgroundColor: Colors.green,
       ),
     );
-    
-    // Close Job Details Page
+
     Navigator.pop(context, true);
-    
+
   } catch (e, stackTrace) {
-    // ============ ENHANCED ERROR HANDLING ============
     if (!mounted) return;
-    
+
     log('========== ERROR DETAILS ==========');
     log('Error: $e');
     log('Stack Trace: $stackTrace');
     log('===================================');
-    
+
+    // Network error fallback: save offline as safety net
+    final errorStr = e.toString();
+    final isNetworkError = errorStr.contains('SocketException') ||
+        errorStr.contains('Failed host lookup') ||
+        errorStr.contains('Network is unreachable') ||
+        errorStr.contains('timeout');
+
+    if (isNetworkError) {
+      try {
+        final offlineResponse = await _jobsController.finishJob(
+          jobId: jobId,
+          imagesBase64: [],
+          notes: trimmedNotes.isEmpty ? null : trimmedNotes,
+          originalImageFiles: images,
+        );
+
+        if (!mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
+
+        if (offlineResponse.success == true) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                offlineResponse.message ?? 'Job saved locally. Will sync when online.',
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+
+          Navigator.pop(context, true);
+          return;
+        }
+      } catch (_) {
+        // Fallback failed, show original error below
+      }
+    }
+
     // Close loading dialog
-    Navigator.of(context, rootNavigator: true).pop();
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
 
     String errorMessage = 'Failed to finish job';
-    
-    // Better error extraction
+
     if (e is Exception) {
       final exceptionStr = e.toString();
       if (exceptionStr.startsWith('Exception: ')) {
@@ -973,7 +1048,6 @@ Future<void> _finishJob(BuildContext context) async {
       errorMessage = e.toString();
     }
 
-    // Small delay before showing error
     await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
 
@@ -981,10 +1055,9 @@ Future<void> _finishJob(BuildContext context) async {
       SnackBar(
         content: Text(errorMessage),
         backgroundColor: Colors.red,
-        duration: const Duration(seconds: 5), // Show error longer
+        duration: const Duration(seconds: 5),
       ),
     );
-    // =================================================
   }
 }
   Future<ImageSource?> _showImageSourceSheet(BuildContext context) async {
@@ -1577,6 +1650,7 @@ Future<void> _finishJob(BuildContext context) async {
       Navigator.of(context).pop(); // Close loading
 
       final success = response.success == true;
+      final isOfflineSave = response.message?.contains('locally') ?? false;
       final message =
           response.message ??
           (success ? 'Job rescheduled successfully' : response.message);
@@ -1587,7 +1661,9 @@ Future<void> _finishJob(BuildContext context) async {
             message.toString(),
             style: const TextStyle(color: Colors.white),
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success
+              ? (isOfflineSave ? Colors.orange : Colors.green)
+              : Colors.red,
         ),
       );
 
@@ -1705,6 +1781,7 @@ Future<void> _finishJob(BuildContext context) async {
       Navigator.of(context).pop();
 
       final success = response.success == true;
+      final isOfflineSave = response.message?.contains('locally') ?? false;
       final message =
           response.message ??
           (success ? 'Success Cancel Job' : 'Failed to cancel job');
@@ -1712,7 +1789,9 @@ Future<void> _finishJob(BuildContext context) async {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message, style: const TextStyle(color: Colors.white)),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success
+              ? (isOfflineSave ? Colors.orange : Colors.green)
+              : Colors.red,
         ),
       );
 

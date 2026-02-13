@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/database/offline_database.dart';
+import 'package:fms/core/services/connectivity_service.dart';
+import 'package:fms/core/services/sync_service.dart';
 import 'package:fms/core/theme/app_theme.dart';
 import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:fms/nav_bar.dart';
@@ -12,6 +15,22 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize SQLite database
+  await OfflineDatabase.instance.database;
+
+  // Initialize ConnectivityService (permanent GetxService)
+  await Get.putAsync<ConnectivityService>(
+    () => ConnectivityService().init(),
+    permanent: true,
+  );
+
+  // Initialize SyncService (permanent GetxService, depends on ConnectivityService)
+  await Get.putAsync<SyncService>(
+    () => SyncService().init(),
+    permanent: true,
+  );
+
   // Initialize controllers
   Get.put(AuthController());
   runApp(const MyApp());
