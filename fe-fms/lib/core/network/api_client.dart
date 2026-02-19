@@ -14,9 +14,13 @@ import 'package:fms/page/auth/presentation/login_page.dart';
 class ApiClient {
   static bool _isValidating = false;
   static bool _hasLoggedOut = false;
+  static bool skipValidation = false;
 
   /// Validate company type before making API request
   static Future<bool> _validateCompanyType() async {
+    // Skip validation during offline sync to reduce failure points
+    if (skipValidation) return true;
+
     // Prevent multiple simultaneous validations
     if (_isValidating || _hasLoggedOut) return !_hasLoggedOut;
     _isValidating = true;

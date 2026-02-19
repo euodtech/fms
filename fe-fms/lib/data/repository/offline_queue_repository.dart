@@ -60,6 +60,16 @@ class OfflineQueueRepository {
     );
   }
 
+  Future<void> resetToPendingWithRetry(int id, int retryCount) async {
+    final db = await OfflineDatabase.instance.database;
+    await db.update(
+      'offline_queue',
+      {'status': 'pending', 'retry_count': retryCount},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<void> deleteAll() async {
     final db = await OfflineDatabase.instance.database;
     await db.delete('offline_queue');

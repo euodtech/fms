@@ -19,8 +19,9 @@ class OfflineDatabase {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -33,6 +34,7 @@ class OfflineDatabase {
         payload TEXT NOT NULL,
         image_paths TEXT,
         status TEXT NOT NULL DEFAULT 'pending',
+        retry_count INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
     ''');
@@ -44,5 +46,13 @@ class OfflineDatabase {
         cached_at TEXT NOT NULL
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE offline_queue ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0',
+      );
+    }
   }
 }

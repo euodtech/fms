@@ -29,7 +29,7 @@ class RescheduleJobDatasource {
 
     final body = {
       'new_date': newDate.toIso8601String(),
-      if (notes != null && notes.isNotEmpty) 'notes': notes,
+      'notes': notes ?? '',
     };
 
     final response = await ApiClient.post(

@@ -11,6 +11,7 @@ class OfflineQueueItem {
   final Map<String, dynamic> payload;
   final List<String>? imagePaths;
   final OfflineQueueStatus status;
+  final int retryCount;
   final DateTime createdAt;
 
   OfflineQueueItem({
@@ -20,6 +21,7 @@ class OfflineQueueItem {
     required this.payload,
     this.imagePaths,
     required this.status,
+    this.retryCount = 0,
     required this.createdAt,
   });
 
@@ -30,6 +32,7 @@ class OfflineQueueItem {
     'payload': jsonEncode(payload),
     'image_paths': imagePaths != null ? jsonEncode(imagePaths) : null,
     'status': status.name,
+    'retry_count': retryCount,
     'created_at': createdAt.toIso8601String(),
   };
 
@@ -43,6 +46,7 @@ class OfflineQueueItem {
           ? List<String>.from(jsonDecode(map['image_paths'] as String))
           : null,
       status: OfflineQueueStatus.values.byName(map['status'] as String),
+      retryCount: (map['retry_count'] as int?) ?? 0,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }

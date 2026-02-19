@@ -74,6 +74,9 @@ class AuthController extends Controller {
                     "CompanyLabel" => ($customer->CompanySubscribe == 1) ? "Basic" : "Pro" ,
                     "UsernameTraxrooot" => $customer->username_traxroot,
                     "PasswordTraxrooot" => $customer->password_traxroot,
+                    "CompanyLogo" => $customer->CompanyLogo
+                        ? env('COMPANY_LOGO_BASE_URL', 'http://localhost/be-fms/internal/assets/dist/img/company_logo/') . $customer->CompanyLogo
+                        : null,
                 ];
 
 

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/network/api_client.dart';
 import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/services/image_storage_service.dart';
 import 'package:fms/data/datasource/cancel_job_datasource.dart';
@@ -27,7 +29,12 @@ class SyncService extends GetxService {
     final connectivity = Get.find<ConnectivityService>();
     ever(connectivity.isConnected, (bool connected) {
       if (connected) {
-        syncAll();
+        // Wait for connection to stabilize before syncing
+        Future.delayed(const Duration(seconds: 3), () {
+          if (connectivity.isConnected.value) {
+            syncAll();
+          }
+        });
       }
     });
 
@@ -37,6 +44,9 @@ class SyncService extends GetxService {
   Future<void> syncAll() async {
     if (_isSyncing) return;
     _isSyncing = true;
+
+    // Skip company type validation during sync to reduce failure points
+    ApiClient.skipValidation = true;
 
     try {
       final items = await _queueRepo.getPendingItems();
@@ -73,6 +83,7 @@ class SyncService extends GetxService {
     } catch (e) {
       log('Sync error: $e', name: 'SyncService', level: 1000);
     } finally {
+      ApiClient.skipValidation = false;
       _isSyncing = false;
     }
   }
@@ -111,20 +122,35 @@ class SyncService extends GetxService {
     } catch (e) {
       log('Failed to sync job #${item.jobId}: $e', name: 'SyncService', level: 1000);
 
-      // Discard failed item
-      await _queueRepo.delete(itemId);
-      if (item.imagePaths != null && item.imagePaths!.isNotEmpty) {
-        await ImageStorageService.deleteImages(item.imagePaths!);
-      }
+      final newRetryCount = item.retryCount + 1;
+      if (newRetryCount >= 3) {
+        // Max retries exhausted — discard
+        await _queueRepo.delete(itemId);
+        if (item.imagePaths != null && item.imagePaths!.isNotEmpty) {
+          await ImageStorageService.deleteImages(item.imagePaths!);
+        }
 
-      Get.snackbar(
-        'Sync Failed',
-        'Job #${item.jobId} failed: $e. Submission discarded.',
-        backgroundColor: Colors.red.withValues(alpha: 0.9),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 4),
-      );
+        Get.snackbar(
+          'Sync Failed',
+          'Job #${item.jobId} failed after 3 attempts. Discarded.',
+          backgroundColor: Colors.red.withValues(alpha: 0.9),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          duration: const Duration(seconds: 4),
+        );
+      } else {
+        // Reset to pending for retry on next sync cycle
+        await _queueRepo.resetToPendingWithRetry(itemId, newRetryCount);
+
+        Get.snackbar(
+          'Sync Retry',
+          'Job #${item.jobId} will retry ($newRetryCount/3)',
+          backgroundColor: Colors.orange.withValues(alpha: 0.9),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          duration: const Duration(seconds: 3),
+        );
+      }
     }
   }
 
@@ -138,7 +164,7 @@ class SyncService extends GetxService {
       jobId: item.jobId,
       imagesBase64: imagesBase64,
       notes: item.payload['notes'] as String?,
-    );
+    ).timeout(const Duration(seconds: 60));
 
     if (response.success != true) {
       throw Exception(response.message ?? 'Server rejected finish request');
