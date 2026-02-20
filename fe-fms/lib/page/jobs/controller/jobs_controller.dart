@@ -24,10 +24,11 @@ import 'package:fms/data/models/response/reschedule_job_response_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
 import 'package:fms/data/repository/job_cache_repository.dart';
 import 'package:fms/data/repository/offline_queue_repository.dart';
+import 'package:fms/page/jobs/controller/history_filter_mixin.dart';
 
 /// Controller for managing job lists (all, ongoing, history) and job actions.
 class JobsController extends GetxController
-    with GetSingleTickerProviderStateMixin {
+    with GetSingleTickerProviderStateMixin, HistoryFilterMixin {
   final Rx<GetJobResponseModel?> allJobsResponse = Rx<GetJobResponseModel?>(
     null,
   );
@@ -92,6 +93,7 @@ class JobsController extends GetxController
 
   @override
   void onClose() {
+    disposeHistoryFilter();
     tabController.dispose();
     super.onClose();
   }
@@ -99,6 +101,7 @@ class JobsController extends GetxController
   @override
   void onInit() {
     super.onInit();
+    initHistoryFilter();
     tabController = TabController(length: 3, vsync: this);
     fetchAllJobs();
     fetchOngoingJobs();

@@ -7,6 +7,7 @@ import 'package:fms/page/jobs/presentation/job_details_page.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
 import '../widget/job_summary_card.dart';
+import '../widget/history_filter_bar.dart';
 import 'job_history_detail_page.dart';
 
 /// Displays a tabbed list of jobs for the driver, including all, ongoing,
@@ -210,7 +211,8 @@ class JobsPage extends StatelessWidget {
     });
   }
 
-  /// Builds the list of completed jobs (history tab).
+  /// Builds the list of completed jobs (history tab) with search, filter,
+  /// and sort capabilities via [HistoryFilterMixin].
   Widget _getHistoryJob(JobsController controller, BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = colorScheme.primary;
@@ -230,38 +232,105 @@ class JobsPage extends StatelessWidget {
         return _buildRefreshableMessage(controller, 'No history jobs found');
       }
 
-      return RefreshIndicator(
-        onRefresh: controller.refresh,
-        triggerMode: RefreshIndicatorTriggerMode.anywhere,
-        child: ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: controller.historyJobsResponse.value!.data!.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final job = controller.historyJobsResponse.value!.data![index];
-            return JobSummaryCard(
-              title: job.jobName ?? 'Untitled Job',
-              customerName: job.customerName,
-              address: job.address,
-              dateLabel: job.jobDate != null ? _formatDate(job.jobDate) : null,
-              badges: [
-                _buildJobTypeBadge(context, job.typeJob),
-                _buildStatusBadge(
-                  label: 'Completed',
-                  color: Colors.green,
-                  icon: Icons.verified_outlined,
-                ),
-              ],
-              accentColor: accent,
-              onTap: () => _openHistoryDetails(job),
-              onDetails: () => _openHistoryDetails(job),
-              detailsLabel: 'Report',
-            );
-          },
-        ),
+      // Read reactive filter values so Obx rebuilds on changes
+      controller.historySearchQuery.value;
+      controller.historyDateRange.value;
+      controller.historyTypeFilter.value;
+      controller.historySortOrder.value;
+      controller.isHistoryFilterVisible.value;
+
+      final filteredJobs = controller.getFilteredHistoryJobs(
+        controller.historyJobsResponse.value!.data,
+      );
+
+      return Column(
+        children: [
+          HistoryFilterBar(filteredCount: filteredJobs.length),
+          Expanded(
+            child: filteredJobs.isEmpty
+                ? _buildFilteredEmptyState(controller)
+                : RefreshIndicator(
+                    onRefresh: controller.refresh,
+                    triggerMode: RefreshIndicatorTriggerMode.anywhere,
+                    child: ListView.separated(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      itemCount: filteredJobs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final job = filteredJobs[index];
+                        return JobSummaryCard(
+                          title: job.jobName ?? 'Untitled Job',
+                          customerName: job.customerName,
+                          address: job.address,
+                          dateLabel: job.jobDate != null
+                              ? _formatDate(job.jobDate)
+                              : null,
+                          badges: [
+                            _buildJobTypeBadge(context, job.typeJob),
+                            _buildStatusBadge(
+                              label: 'Completed',
+                              color: Colors.green,
+                              icon: Icons.verified_outlined,
+                            ),
+                          ],
+                          accentColor: accent,
+                          onTap: () => _openHistoryDetails(job),
+                          onDetails: () => _openHistoryDetails(job),
+                          detailsLabel: 'Report',
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
       );
     });
+  }
+
+  /// Empty state shown when filters match no jobs.
+  Widget _buildFilteredEmptyState(JobsController controller) {
+    return RefreshIndicator(
+      onRefresh: controller.refresh,
+      triggerMode: RefreshIndicatorTriggerMode.anywhere,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              SizedBox(
+                height: constraints.maxHeight,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.search_off,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('No jobs match your filters'),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: controller.clearHistoryFilters,
+                        child: const Text('Clear filters'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   /// Maps the numeric job type from the backend into a readable label.
