@@ -46,9 +46,8 @@ class ApiClient {
       final response = await http.get(
         uri,
         headers: {
-          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
           'Accept': 'application/json',
-          'Authorization': 'Bearer $apiKey',
         },
       );
 

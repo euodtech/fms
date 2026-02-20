@@ -23,9 +23,7 @@ class RescheduleJobDatasource {
       throw Exception('API Key not found');
     }
 
-    final uri = Uri.parse(
-      '${Variables.rescheduleJobEndpoint}/$jobId',
-    ).replace(queryParameters: {'x-key': apiKey});
+    final uri = Uri.parse('${Variables.rescheduleJobEndpoint}/$jobId');
 
     final body = {
       'new_date': newDate.toIso8601String(),
@@ -34,7 +32,11 @@ class RescheduleJobDatasource {
 
     final response = await ApiClient.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: json.encode(body),
     );
 

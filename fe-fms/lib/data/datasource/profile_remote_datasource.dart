@@ -25,10 +25,10 @@ class ProfileRemoteDataSource {
     }
 
     final endpoint = Variables.getProfileEndpoint(userId);
-    final uri = Uri.parse(endpoint).replace(queryParameters: {'x-key': apiKey});
+    final uri = Uri.parse(endpoint);
     final response = await ApiClient.get(
       uri,
-      headers: {'Accept': 'application/json'},
+      headers: {'X-API-Key': apiKey, 'Accept': 'application/json'},
     );
     log(
       response.statusCode.toString(),

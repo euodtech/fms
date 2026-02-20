@@ -17,13 +17,14 @@ class GetJobDatasource {
     final apiKey = prefs.getString(Variables.prefApiKey);
 
     if (apiKey == null) {
-      SessionService;
+      return GetJobResponseModel();
     }
 
-    final uri = Uri.parse(
-      Variables.getJobEndpoint,
-    ).replace(queryParameters: {'x-key': apiKey});
-    final response = await ApiClient.get(uri);
+    final uri = Uri.parse(Variables.getJobEndpoint);
+    final response = await ApiClient.get(
+      uri,
+      headers: {'X-API-Key': apiKey, 'Accept': 'application/json'},
+    );
     if (await SessionService.handleUnauthorizedResponse(prefs, response)) {
       SessionService;
     }

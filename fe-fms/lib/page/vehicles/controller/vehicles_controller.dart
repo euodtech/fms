@@ -6,7 +6,8 @@ import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/traxroot_icon_model.dart';
 import 'package:fms/data/models/traxroot_object_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
-import 'package:fms/core/services/traxroot_credentials_manager.dart';
+import 'package:fms/core/constants/variables.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/page/home/controller/home_controller.dart';
 
 /// Controller for managing vehicle data and tracking operations.
@@ -82,9 +83,10 @@ class VehiclesController extends GetxController {
     isLoading.value = true;
 
     try {
-      final hasTraxrootCreds =
-          await TraxrootCredentialsManager.hasCredentials();
-      if (!hasTraxrootCreds) {
+      final prefs = await SharedPreferences.getInstance();
+      final hasTraxroot =
+          prefs.getBool(Variables.prefHasTraxroot) ?? false;
+      if (!hasTraxroot) {
         objects.clear();
         iconsById.clear();
         availableGroups.clear();

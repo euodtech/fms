@@ -26,8 +26,11 @@ class GetJobHistoryDatasource {
     }
 
     final endpoint = Variables.getJobHistoryEndpoint(userId);
-    final uri = Uri.parse(endpoint).replace(queryParameters: {'x-key': apiKey});
-    final response = await ApiClient.get(uri);
+    final uri = Uri.parse(endpoint);
+    final response = await ApiClient.get(
+      uri,
+      headers: {'X-API-Key': apiKey, 'Accept': 'application/json'},
+    );
     if (await SessionService.handleUnauthorizedResponse(prefs, response)) {
       SessionService;
     }

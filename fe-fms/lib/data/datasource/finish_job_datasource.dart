@@ -23,13 +23,11 @@ class FinishJobDatasource {
       throw Exception('API Key not found');
     }
 
-    final uri = Uri.parse(
-      Variables.finishedJobEndpoint,
-    ).replace(queryParameters: {'x-key': apiKey});
-
+    final uri = Uri.parse(Variables.finishedJobEndpoint);
     final response = await ApiClient.post(
       uri,
       headers: {
+        'X-API-Key': apiKey,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },

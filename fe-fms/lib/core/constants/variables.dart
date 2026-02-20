@@ -39,16 +39,9 @@ class Variables {
   static const String rescheduleJobEndpoint = '$baseUrl/reschedule-job';
 
   // Traxroot endpoints
-  /// Base URL for Traxroot API.
+  /// Base URL for direct Traxroot API (used with proxy-obtained token).
   static const String traxrootBaseUrl = 'https://connect.traxroot.com/api';
-  static const String traxrootTokenEndpoint = '$traxrootBaseUrl/Token';
-  // static const String traxrootUsername = 'euodoo';
-  // static const String traxrootPassword = 'euodoo360';
-  static const int traxrootSubUserId = 0;
-  static const String traxrootLanguage = 'en';
   static const String traxrootIconBaseUrl = 'https://connect.traxroot.com';
-  static const String traxrootInternalBaseUrl =
-      'http://quetraverse.pro/efms/internal/v1/api/traxroot';
   static const String traxrootObjectsStatusEndpoint =
       '$traxrootBaseUrl/ObjectsStatus';
   static String getTraxrootObjectStatusEndpoint(int objectId) =>
@@ -63,16 +56,6 @@ class Variables {
   static const String traxrootGeozoneIconsEndpoint =
       '$traxrootBaseUrl/Geozones/Icons';
   static const String traxrootProfileEndpoint = '$traxrootBaseUrl/profile';
-  // static const String traxrootInternalDriversEndpoint =
-  //     '$traxrootInternalBaseUrl/getDrivers';
-  // static String traxrootInternalDriverByIdEndpoint(int driverId) =>
-  //     '$traxrootInternalBaseUrl/getDrivers/$driverId';
-  // static String traxrootInternalGeozoneByIdEndpoint(int geozoneId) =>
-  //     '$traxrootInternalBaseUrl/getGeozones/$geozoneId';
-  // static const String traxrootInternalGeozonesEndpoint =
-  //     '$traxrootInternalBaseUrl/getGeozones';
-  // static const String traxrootInternalGeozoneIconsEndpoint =
-  //     '$traxrootInternalBaseUrl/getGeozoneIcons';
 
   // Shared Preferences keys
   /// Key for storing API Key in Shared Preferences.
@@ -82,8 +65,7 @@ class Variables {
   static const String prefCompanyID = 'CompanyID';
   static const String prefCompanyType = 'CompanyType';
   static const String prefCompanyLabel = 'CompanyLabel';
-  static const String prefTraxrootUsername = 'TraxrootUsername';
-  static const String prefTraxrootPassword = 'TraxrootPassword';
+  static const String prefHasTraxroot = 'HasTraxroot';
 
   static const String prefTraxrootToken = 'TraxrootAccessToken';
   static const String prefTraxrootTokenExpiry = 'TraxrootAccessTokenExpiry';

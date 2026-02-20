@@ -29,8 +29,7 @@ class Data {
   final int? companyId;
   final int? companyType;
   final String? companyLabel;
-  final String? usernameTraxroot;
-  final String? passwordTraxroot;
+  final bool? hasTraxroot;
 
   Data({
     this.userId,
@@ -39,8 +38,7 @@ class Data {
     this.companyId,
     this.companyType,
     this.companyLabel,
-    this.usernameTraxroot,
-    this.passwordTraxroot,
+    this.hasTraxroot,
   });
 
   factory Data.fromJson(String str) => Data.fromMap(json.decode(str));
@@ -54,9 +52,20 @@ class Data {
     companyId: json["CompanyID"],
     companyType: json["CompanyType"],
     companyLabel: json["CompanyLabel"],
-    usernameTraxroot: json["UsernameTraxrooot"],
-    passwordTraxroot: json["PasswordTraxrooot"],
+    hasTraxroot: _parseBool(json["HasTraxroot"]),
   );
+
+  /// Parses a value to bool, handling bool, int (1/0), and string ("true"/"1").
+  static bool? _parseBool(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value;
+    if (value is int) return value != 0;
+    if (value is String) {
+      final lower = value.trim().toLowerCase();
+      return lower == 'true' || lower == '1';
+    }
+    return null;
+  }
 
   Map<String, dynamic> toMap() => {
     "UserID": userId,
@@ -65,7 +74,6 @@ class Data {
     "CompanyID": companyId,
     "CompanyType": companyType,
     "CompanyLabel": companyLabel,
-    "UsernameTraxrooot": usernameTraxroot,
-    "PasswordTraxrooot": passwordTraxroot,
+    "HasTraxroot": hasTraxroot,
   };
 }

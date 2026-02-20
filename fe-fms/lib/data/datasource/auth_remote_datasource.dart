@@ -66,9 +66,13 @@ Future<AuthResponseModel> login({
               name: 'AuthRemoteDataSource', level: 800);
         }
 
-        // --- Persist CompanyLogo ---
+        // --- Log HasTraxroot ---
         log('Login Data keys: ${data.keys.toList()}',
             name: 'AuthRemoteDataSource', level: 800);
+        log('HasTraxroot raw value: ${data['HasTraxroot']} (type: ${data['HasTraxroot']?.runtimeType})',
+            name: 'AuthRemoteDataSource', level: 800);
+
+        // --- Persist CompanyLogo ---
 
         String? companyLogo;
         if (data['CompanyLogo'] != null) companyLogo = data['CompanyLogo'].toString();
@@ -181,12 +185,11 @@ Future<AuthResponseModel> login({
     if (apiKey == null) {
       throw Exception('API Key not found');
     }
-    final url = Uri.parse(
-      '${Variables.baseUrl}/api/update-fcm-token',
-    ).replace(queryParameters: {'x-key': apiKey});
+    final url = Uri.parse('${Variables.baseUrl}/api/update-fcm-token');
     final response = await http.post(
       url,
       headers: {
+        'X-API-Key': apiKey,
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },

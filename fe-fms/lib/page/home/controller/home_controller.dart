@@ -17,8 +17,9 @@ import 'package:fms/data/models/response/get_job_history__response_model.dart'
 import 'dart:developer';
 import 'package:fms/core/services/home_widget_service.dart';
 import 'package:home_widget/home_widget.dart';
-import 'package:fms/core/services/traxroot_credentials_manager.dart';
+import 'package:fms/core/constants/variables.dart';
 import 'package:fms/core/navigation/navigation_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Controller for the home screen, managing map data, jobs, and vehicle tracking.
 class HomeController extends GetxController {
@@ -76,8 +77,9 @@ class HomeController extends GetxController {
     error.value = '';
 
     try {
-      final hasTraxrootCreds =
-          await TraxrootCredentialsManager.hasCredentials();
+      final prefs = await SharedPreferences.getInstance();
+      final hasTraxroot =
+          prefs.getBool(Variables.prefHasTraxroot) ?? false;
       // Check for widget launch
       final widgetUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
       if (widgetUri != null) {
@@ -97,7 +99,7 @@ class HomeController extends GetxController {
       List<TraxrootIconModel> icons = <TraxrootIconModel>[];
       List<TraxrootGeozoneModel> geozones = <TraxrootGeozoneModel>[];
 
-      if (hasTraxrootCreds) {
+      if (hasTraxroot) {
         final objectsFuture = _objectsDatasource.getObjects();
         final iconsFuture = _objectsDatasource.getObjectIcons();
         final geozonesFuture = _internalDatasource.getGeozones();
@@ -107,7 +109,7 @@ class HomeController extends GetxController {
         geozones = await geozonesFuture;
       } else {
         error.value =
-            'Unable to load map: Traxroot credentials are not configured. Please contact your administrator.';
+            'Unable to load map: GPS tracking is not configured for this company. Please contact your administrator.';
       }
 
       final allJobs = await allJobsFuture;
@@ -278,7 +280,7 @@ class HomeController extends GetxController {
         if (authError != null &&
             authError.toLowerCase().contains('invalid username or password')) {
           error.value =
-              'Unable to load map: Traxroot credentials are invalid. Please contact your administrator.';
+              'Unable to load map: GPS tracking authentication failed. Please contact your administrator.';
         }
       }
     } catch (e) {
@@ -293,13 +295,13 @@ class HomeController extends GetxController {
       final msg = e.toString();
       if (msg.toLowerCase().contains('invalid username or password')) {
         error.value =
-            'Unable to load map: Traxroot credentials are invalid. Please contact your administrator.';
+            'Unable to load map: GPS tracking authentication failed. Please contact your administrator.';
       } else {
         final authError = TraxrootAuthDatasource.lastErrorMessage;
         if (authError != null &&
             authError.toLowerCase().contains('invalid username or password')) {
           error.value =
-              'Unable to load map: Traxroot credentials are invalid. Please contact your administrator.';
+              'Unable to load map: GPS tracking authentication failed. Please contact your administrator.';
         } else {
           error.value = 'Failed to load map data. Please try again later.';
         }

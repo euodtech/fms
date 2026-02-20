@@ -24,12 +24,10 @@ class DriverGetJobDatasource {
       throw Exception('User ID not found');
     }
 
-    final uri = Uri.parse(
-      Variables.driverGetJobEndpoint,
-    ).replace(queryParameters: {'x-key': apiKey});
-
+    final uri = Uri.parse(Variables.driverGetJobEndpoint);
     final response = await ApiClient.post(
       uri,
+      headers: {'X-API-Key': apiKey, 'Accept': 'application/json'},
       body: {'user_id': userId, 'job_id': jobId.toString()},
     );
 

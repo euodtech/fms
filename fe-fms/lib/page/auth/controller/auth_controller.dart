@@ -6,7 +6,6 @@ import 'package:fms/core/constants/variables.dart';
 import 'package:fms/core/network/api_client.dart';
 import 'package:fms/core/services/subscription.dart';
 import 'package:fms/core/services/sync_service.dart';
-import 'package:fms/core/services/traxroot_credentials_manager.dart';
 import 'package:fms/core/storage/secure_storage.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
@@ -113,8 +112,13 @@ class AuthController extends GetxController {
       final companyId = res.data?.companyId;
       final companyType = res.data?.companyType;
       final companyLabel = res.data?.companyLabel;
-      final usernameTraxroot = res.data?.usernameTraxroot;
-      final passwordTraxroot = res.data?.passwordTraxroot;
+      final hasTraxroot = res.data?.hasTraxroot ?? false;
+
+      log(
+        'HasTraxroot: $hasTraxroot',
+        name: 'Login',
+        level: 800,
+      );
 
       if (apiKeyResult == null || apiKeyResult.isEmpty) {
         throw Exception('Error fetch data');
@@ -155,11 +159,7 @@ class AuthController extends GetxController {
         await prefs.setString(Variables.prefCompanyLabel, companyLabel);
       }
 
-      await TraxrootCredentialsManager.cache(
-        username: usernameTraxroot,
-        password: passwordTraxroot,
-        prefs: prefs,
-      );
+      await prefs.setBool(Variables.prefHasTraxroot, hasTraxroot);
 
       ApiClient.resetLogoutFlag();
 
@@ -202,9 +202,6 @@ class AuthController extends GetxController {
 
     // Clear Traxroot token cache
     await TraxrootAuthDatasource().clearCachedToken();
-
-    // Invalidate Traxroot credentials cache so next user doesn't use previous user's credentials
-    TraxrootCredentialsManager.invalidateCache();
 
     // Clear controller caches
     try {

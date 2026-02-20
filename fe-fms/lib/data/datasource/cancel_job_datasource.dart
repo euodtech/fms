@@ -22,11 +22,12 @@ class CancelJobDatasource {
       throw Exception('API Key not found');
     }
 
-    final uri = Uri.parse(
-      '${Variables.cancelJobEndpoint}/$jobId',
-    ).replace(queryParameters: {'x-key': apiKey});
-
-    final response = await ApiClient.post(uri, body: {'reason': reason});
+    final uri = Uri.parse('${Variables.cancelJobEndpoint}/$jobId');
+    final response = await ApiClient.post(
+      uri,
+      headers: {'X-API-Key': apiKey, 'Accept': 'application/json'},
+      body: {'reason': reason},
+    );
 
     log(
       'status: ${response.statusCode}',

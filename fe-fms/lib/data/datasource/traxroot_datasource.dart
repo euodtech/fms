@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/variables.dart';
-import '../../core/services/traxroot_credentials_manager.dart';
 import '../models/traxroot_driver_model.dart';
 import '../models/traxroot_geozone_model.dart';
 import '../models/traxroot_icon_model.dart';
@@ -48,20 +47,18 @@ class TraxrootAuthDatasource {
 
   Future<String> _requestAndCacheToken(SharedPreferences prefs) async {
     lastErrorMessage = null;
-    final username = await TraxrootCredentialsManager.getUsername(prefs: prefs);
-    final password = await TraxrootCredentialsManager.getPassword(prefs: prefs);
+    final apiKey = prefs.getString(Variables.prefApiKey);
+    if (apiKey == null || apiKey.isEmpty) {
+      lastErrorMessage = 'API key not found';
+      return '';
+    }
+
     final response = await http.post(
-      Uri.parse(Variables.traxrootTokenEndpoint),
+      Uri.parse('${Variables.baseUrl}/traxroot/token'),
       headers: {
-        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
         'Accept': 'application/json',
       },
-      body: jsonEncode({
-        'userName': username,
-        'password': password,
-        'subUserId': Variables.traxrootSubUserId,
-        'language': Variables.traxrootLanguage,
-      }),
     );
 
     log(
