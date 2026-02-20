@@ -1346,7 +1346,8 @@ Future<void> _finishJob(BuildContext context) async {
     final textTheme = theme.textTheme;
 
     DateTime selectedDate = ManilaTimezone.now().add(const Duration(days: 1));
-    TimeOfDay selectedTime = TimeOfDay.now();
+    final _manilaTime = ManilaTimezone.now();
+    TimeOfDay selectedTime = TimeOfDay(hour: _manilaTime.hour, minute: _manilaTime.minute);
     final notesController = _rescheduleNotesController;
     notesController.clear();
 

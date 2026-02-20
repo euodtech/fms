@@ -109,9 +109,9 @@ class JobsPage extends StatelessWidget {
         triggerMode: RefreshIndicatorTriggerMode.anywhere,
         child: ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           itemCount: visibleJobs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final job = visibleJobs[index];
             return JobSummaryCard(
@@ -164,9 +164,9 @@ class JobsPage extends StatelessWidget {
         triggerMode: RefreshIndicatorTriggerMode.anywhere,
         child: ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           itemCount: controller.ongoingJobsResponse.value!.data!.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final job = controller.ongoingJobsResponse.value!.data![index];
             final jobId = job.jobId;
@@ -235,9 +235,9 @@ class JobsPage extends StatelessWidget {
         triggerMode: RefreshIndicatorTriggerMode.anywhere,
         child: ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           itemCount: controller.historyJobsResponse.value!.data!.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final job = controller.historyJobsResponse.value!.data![index];
             return JobSummaryCard(

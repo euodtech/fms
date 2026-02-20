@@ -54,27 +54,22 @@ class JobSummaryCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap ?? onDetails,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(16),
             color: Colors.white,
             border: Border.all(color: accent.withValues(alpha: 0.18)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
-              ),
-              BoxShadow(
                 color: accent.withValues(alpha: 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -84,7 +79,7 @@ class JobSummaryCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title,
-                      style: textTheme.titleMedium?.copyWith(
+                      style: textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: theme.colorScheme.onSurface,
                       ),
@@ -92,7 +87,7 @@ class JobSummaryCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
               if (customerName != null && customerName!.isNotEmpty)
                 _InfoRow(
                   icon: Icons.person_outline,
@@ -100,7 +95,7 @@ class JobSummaryCard extends StatelessWidget {
                   color: accent,
                 ),
               if (dateLabel != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 _InfoRow(
                   icon: Icons.calendar_today_outlined,
                   label: dateLabel!,
@@ -108,7 +103,7 @@ class JobSummaryCard extends StatelessWidget {
                 ),
               ],
               if (address != null && address!.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 _InfoRow(
                   icon: Icons.location_on_outlined,
                   label: address!,
@@ -117,42 +112,15 @@ class JobSummaryCard extends StatelessWidget {
                 ),
               ],
               if (badges.isNotEmpty) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: badges
                       .map((badge) => _BadgeChip(badge: badge))
                       .toList(),
                 ),
               ],
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: onDetails ?? onTap,
-                  // icon: Icon(Icons.arrow_forward_rounded,
-                  //     size: 18, color: accent),
-                  label: Text(
-                    detailsLabel,
-                    style: textTheme.labelLarge?.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    foregroundColor: accent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    overlayColor: accent.withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -182,23 +150,15 @@ class _InfoRow extends StatelessWidget {
           ? CrossAxisAlignment.center
           : CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: 0.12),
-          ),
-          child: Icon(icon, size: 18, color: color),
-        ),
-        const SizedBox(width: 10),
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             label,
             maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
-            style: textTheme.bodyMedium?.copyWith(
-              color: textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
+            style: textTheme.bodySmall?.copyWith(
+              color: textTheme.bodySmall?.color?.withValues(alpha: 0.9),
             ),
           ),
         ),
@@ -226,17 +186,17 @@ class _BadgeChip extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (badge.icon != null) ...[
-              Icon(badge.icon, size: 16, color: badge.foregroundColor),
-              const SizedBox(width: 6),
+              Icon(badge.icon, size: 14, color: badge.foregroundColor),
+              const SizedBox(width: 4),
             ],
             Text(
               badge.label,
-              style: textTheme.labelMedium?.copyWith(
+              style: textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: badge.foregroundColor,
               ),
