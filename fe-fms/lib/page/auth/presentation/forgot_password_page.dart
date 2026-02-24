@@ -218,7 +218,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           child: Icon(
             Icons.check_circle_outline_rounded,
             size: 60,
-            color: Colors.green,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 32),

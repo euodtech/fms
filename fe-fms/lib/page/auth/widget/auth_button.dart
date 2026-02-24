@@ -26,10 +26,13 @@ class AuthButton extends StatelessWidget {
       height: 50,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
-        style:
-            ElevatedButton.styleFrom(
-              backgroundColor: isOutlined ? Colors.transparent : null,
-              foregroundColor: isOutlined ? theme.colorScheme.primary : null,
+        style: ElevatedButton.styleFrom(
+              backgroundColor: isOutlined
+                  ? Colors.transparent
+                  : theme.colorScheme.primary,
+              foregroundColor: isOutlined
+                  ? theme.colorScheme.primary
+                  : Colors.white,
               elevation: isOutlined ? 0 : null,
               side: isOutlined
                   ? BorderSide(color: theme.colorScheme.primary)
@@ -38,15 +41,6 @@ class AuthButton extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-            ).copyWith(
-              backgroundColor: isOutlined
-                  ? WidgetStateProperty.all(Colors.transparent)
-                  : WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetStateProperty.resolveWith)) {
-                        return Colors.transparent;
-                      }
-                      return null;
-                    }),
             ),
         child: isLoading
             ? SizedBox(
