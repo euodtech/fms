@@ -106,19 +106,19 @@ Future<AuthResponseModel> login({
     } else {
       throw Exception('Login failed: invalid response');
     }
+  } else if (response.statusCode == 429) {
+    final retryAfter = response.headers['retry-after'];
+    final seconds = int.tryParse(retryAfter ?? '') ?? 60;
+    throw Exception(
+      'Too many login attempts. Please try again in $seconds seconds.',
+    );
   } else {
     HttpErrorHandler.handleResponse(response.statusCode, response.body);
-
-    String message = 'Login failed, please try again later';
     log(response.body, name: 'AuthRemoteDataSource', level: 1200);
-
-    try {
-      final decoded = json.decode(response.body) as Map<String, dynamic>;
-      if (decoded['Message'] != null) message = decoded['Message'].toString();
-      else if (decoded['message'] != null) message = decoded['message'].toString();
-    } catch (_) {}
-
-    throw Exception(message);
+    throw Exception(_extractErrorMessage(
+      response.body,
+      'Login failed, please try again later',
+    ));
   }
 }
 
@@ -150,18 +150,22 @@ Future<AuthResponseModel> login({
         }
       } catch (_) {}
       return 'Reset password email sent.';
+    } else if (response.statusCode == 429) {
+      final retryAfter = response.headers['retry-after'];
+      final seconds = int.tryParse(retryAfter ?? '') ?? 60;
+      throw Exception(
+        'Too many attempts. Please try again in $seconds seconds.',
+      );
     } else {
       log(
         response.body,
         name: 'AuthRemoteDataSource.forgotPassword',
         level: 1200,
       );
-      String message = 'Failed to send reset password (${response.statusCode})';
-      try {
-        final decoded = json.decode(response.body) as Map<String, dynamic>;
-        if (decoded['message'] != null) message = decoded['message'].toString();
-      } catch (_) {}
-      throw Exception(message);
+      throw Exception(_extractErrorMessage(
+        response.body,
+        'Failed to send reset password (${response.statusCode})',
+      ));
     }
   }
 
@@ -210,28 +214,55 @@ Future<AuthResponseModel> login({
         }
       } catch (_) {}
       return 'Password changed successfully';
+    } else if (response.statusCode == 429) {
+      final retryAfter = response.headers['retry-after'];
+      final seconds = int.tryParse(retryAfter ?? '') ?? 60;
+      throw Exception(
+        'Too many attempts. Please try again in $seconds seconds.',
+      );
     } else {
       log(
         response.body,
         name: 'AuthRemoteDataSource.changePassword',
         level: 1200,
       );
-      String message = 'Failed to change password';
-      try {
-        final decoded = json.decode(response.body) as Map<String, dynamic>;
-        if (decoded['message'] != null) {
-          message = decoded['message'].toString();
-        } else if (decoded['Message'] != null) {
-          message = decoded['Message'].toString();
-        }
-      } catch (_) {}
-      throw Exception(message);
+      throw Exception(_extractErrorMessage(
+        response.body,
+        'Failed to change password',
+      ));
     }
   }
 
-  /// Logs out the user and clears local data.
+  /// Logs out the user: calls the server logout endpoint, then clears local data.
+  ///
+  /// Always clears local data even if the API call fails.
   Future<String> logout() async {
     final prefs = await SharedPreferences.getInstance();
+    final apiKey = prefs.getString(Variables.prefApiKey);
+    final userId = prefs.getString(Variables.prefUserID);
+
+    // Attempt server-side logout (fire-and-forget)
+    if (apiKey != null && userId != null) {
+      try {
+        await http.post(
+          Uri.parse(Variables.logoutEndpoint),
+          headers: {
+            'X-API-Key': apiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({'user_id': int.tryParse(userId) ?? userId}),
+        ).timeout(const Duration(seconds: 5));
+      } catch (e) {
+        log(
+          'Server logout failed (non-blocking): $e',
+          name: 'AuthRemoteDataSource',
+          level: 900,
+        );
+      }
+    }
+
+    // Always clear local data
     await prefs.clear();
     log(
       'All shared preferences cleared',
@@ -289,4 +320,36 @@ Future<AuthResponseModel> login({
       return;
     }
   }
+}
+
+/// Extracts a user-friendly error message from a backend response.
+///
+/// Checks for field-level validation errors in `Errors`/`errors` (422),
+/// then falls back to `Message`/`message` string.
+String _extractErrorMessage(String responseBody, String fallback) {
+  try {
+    final decoded = json.decode(responseBody) as Map<String, dynamic>;
+
+    // Check for field-level validation errors (422)
+    final errors = decoded['Errors'] ?? decoded['errors'];
+    if (errors is Map<String, dynamic> && errors.isNotEmpty) {
+      final messages = <String>[];
+      for (final fieldErrors in errors.values) {
+        if (fieldErrors is List) {
+          for (final msg in fieldErrors) {
+            messages.add(msg.toString());
+          }
+        } else if (fieldErrors is String) {
+          messages.add(fieldErrors);
+        }
+      }
+      if (messages.isNotEmpty) return messages.join('\n');
+    }
+
+    // Fall back to top-level message
+    if (decoded['Message'] != null) return decoded['Message'].toString();
+    if (decoded['message'] != null) return decoded['message'].toString();
+  } catch (_) {}
+
+  return fallback;
 }

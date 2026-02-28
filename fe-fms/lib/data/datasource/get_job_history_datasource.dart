@@ -43,6 +43,9 @@ class GetJobHistoryDatasource {
 
     if (response.statusCode == 200) {
       return GetJobHistoryResponseModel.fromJson(response.body);
+    } else if (response.statusCode == 403) {
+      log('403 Forbidden for job history', name: 'GetJobHistoryDatasource', level: 1000);
+      return GetJobHistoryResponseModel();
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
       log(response.body, name: 'GetJobHistoryDatasource', level: 1200);

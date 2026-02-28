@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
@@ -19,6 +21,7 @@ class ProfileController extends GetxController {
   final Rx<ProfileResponseModel?> profile = Rx<ProfileResponseModel?>(null);
   final RxBool isLoading = true.obs;
   final RxBool isChangingPassword = false.obs;
+  final RxnString error = RxnString();
 
   @override
   void onInit() {
@@ -28,11 +31,14 @@ class ProfileController extends GetxController {
 
   /// Fetches the user's profile information.
   Future<void> fetchProfile() async {
+    isLoading.value = true;
+    error.value = null;
     try {
       final res = await _profileDs.getProfile();
       profile.value = res;
-    } catch (_) {
-      // Keep silent, same behaviour as previous implementation which only toggled loading flag.
+    } catch (e) {
+      log('Failed to fetch profile: $e', name: 'ProfileController', level: 1000);
+      error.value = 'Failed to load profile';
     } finally {
       isLoading.value = false;
     }

@@ -12,11 +12,13 @@ class ProfileResponseModel {
 
   String toJson() => json.encode(toMap());
 
-  factory ProfileResponseModel.fromMap(Map<String, dynamic> json) =>
-      ProfileResponseModel(
-        success: json["Success"],
-        data: json["Data"] == null ? null : Data.fromMap(json["Data"]),
-      );
+  factory ProfileResponseModel.fromMap(Map<String, dynamic> json) {
+    final data = json["Data"] ?? json["data"];
+    return ProfileResponseModel(
+      success: json["Success"] ?? json["success"],
+      data: data == null ? null : Data.fromMap(data),
+    );
+  }
 
   Map<String, dynamic> toMap() => {"Success": success, "Data": data?.toMap()};
 }
@@ -34,9 +36,9 @@ class Data {
   String toJson() => json.encode(toMap());
 
   factory Data.fromMap(Map<String, dynamic> json) => Data(
-    fullname: json["Fullname"],
-    email: json["Email"],
-    phoneNumber: json["PhoneNumber"],
+    fullname: json["Fullname"] ?? json["fullname"] ?? json["FullName"] ?? json["full_name"],
+    email: json["Email"] ?? json["email"],
+    phoneNumber: json["PhoneNumber"] ?? json["phoneNumber"] ?? json["phone_number"],
   );
 
   Map<String, dynamic> toMap() => {

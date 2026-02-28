@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fms/core/constants/variables.dart';
+
 /// Response model for fetching job history.
 class GetJobHistoryResponseModel {
   final bool? success;
@@ -42,6 +44,7 @@ class Data {
   final String? address;
   final double? latitude;
   final double? longitude;
+  final List<JobDetail>? details;
 
   Data({
     this.jobId,
@@ -58,6 +61,7 @@ class Data {
     this.address,
     this.latitude,
     this.longitude,
+    this.details,
   });
 
   factory Data.fromJson(String str) => Data.fromMap(json.decode(str));
@@ -81,6 +85,11 @@ class Data {
     address: json["Address"],
     latitude: _parseDouble(json["Latitude"]),
     longitude: _parseDouble(json["Longitude"]),
+    details: json["details"] == null && json["Details"] == null
+        ? null
+        : List<JobDetail>.from(
+            (json["details"] ?? json["Details"])!.map((x) => JobDetail.fromMap(x)),
+          ),
   );
 
   Map<String, dynamic> toMap() => {
@@ -100,7 +109,45 @@ class Data {
     "Address": address,
     "Latitude": latitude,
     "Longitude": longitude,
+    "details": details == null
+        ? null
+        : List<dynamic>.from(details!.map((x) => x.toMap())),
   };
+}
+
+/// A detail entry for a completed job, may include a photo.
+class JobDetail {
+  final int? detailId;
+  final int? listJobId;
+  final String? photo;
+  final DateTime? createdAt;
+
+  JobDetail({this.detailId, this.listJobId, this.photo, this.createdAt});
+
+  factory JobDetail.fromMap(Map<String, dynamic> json) => JobDetail(
+    detailId: json['ListDetailID'] ?? json['detailId'],
+    listJobId: json['ListJobID'] ?? json['listJobId'],
+    photo: (json['Photo'] ?? json['photo'])?.toString(),
+    createdAt: json['created_at'] == null
+        ? null
+        : DateTime.tryParse(json['created_at'].toString()),
+  );
+
+  Map<String, dynamic> toMap() => {
+    'ListDetailID': detailId,
+    'ListJobID': listJobId,
+    'Photo': photo,
+    'created_at': createdAt?.toIso8601String(),
+  };
+
+  /// Returns the full photo URL, handling both relative and absolute paths.
+  String? get photoUrl {
+    if (photo == null || photo!.isEmpty) return null;
+    if (photo!.startsWith('http://') || photo!.startsWith('https://')) {
+      return photo;
+    }
+    return '${Variables.baseUrl}/$photo';
+  }
 }
 
 double? _parseDouble(dynamic value) {

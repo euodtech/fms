@@ -10,6 +10,7 @@ import 'package:fms/data/datasource/get_job_datasource.dart';
 import 'package:fms/data/datasource/get_job_history_datasource.dart';
 import 'package:fms/data/datasource/get_job_ongoing_datasource.dart';
 import 'package:fms/data/datasource/reschedule_job_datasource.dart';
+import 'package:fms/data/datasource/reschedule_status_datasource.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/offline_queue_item.dart';
 import 'package:fms/data/models/response/cancel_job_response_model.dart';
@@ -21,6 +22,7 @@ import 'package:fms/data/models/response/get_job_ongoing_response_model.dart'
 import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
 import 'package:fms/data/models/response/reschedule_job_response_model.dart';
+import 'package:fms/data/models/response/reschedule_status_response_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
 import 'package:fms/data/repository/job_cache_repository.dart';
 import 'package:fms/data/repository/offline_queue_repository.dart';
@@ -54,6 +56,7 @@ class JobsController extends GetxController
   final _driverGetJobDatasource = DriverGetJobDatasource();
   final _finishJobDatasource = FinishJobDatasource();
   final _rescheduleJobDatasource = RescheduleJobDatasource();
+  final _rescheduleStatusDatasource = RescheduleStatusDatasource();
   final _cancelJobDatasource = CancelJobDatasource();
   final _traxrootObjectsDatasource = TraxrootObjectsDatasource(
     TraxrootAuthDatasource(),
@@ -180,6 +183,18 @@ class JobsController extends GetxController
       final activeIds = jobs.map((job) => job.jobId).whereType<int>().toSet();
       rescheduledJobs.removeWhere((jobId, _) => !activeIds.contains(jobId));
 
+      // Clear local optimistic state when server has a definitive answer
+      // (approved=2, rejected=3, or no pending reschedule).
+      for (final job in jobs) {
+        final id = job.jobId;
+        if (id != null && rescheduledJobs.containsKey(id)) {
+          final status = job.rescheduleStatus;
+          if (status == null || status == 0 || status == 2 || status == 3) {
+            rescheduledJobs.remove(id);
+          }
+        }
+      }
+
       // Cache for offline use
       await _jobCacheRepo.cacheOngoingJobs(jobs);
     } catch (e) {
@@ -203,6 +218,11 @@ class JobsController extends GetxController
   /// Clears the rescheduled status of a job locally.
   void clearJobRescheduled(int jobId) {
     rescheduledJobs.remove(jobId);
+  }
+
+  /// Fetches the latest reschedule status for a job from the server.
+  Future<RescheduleStatusResponseModel> fetchRescheduleStatus(int jobId) {
+    return _rescheduleStatusDatasource.getRescheduleStatus(jobId: jobId);
   }
 
   /// Starts a job (driver claims it).

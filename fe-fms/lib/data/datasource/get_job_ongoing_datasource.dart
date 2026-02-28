@@ -42,6 +42,9 @@ class GetJobOngoingDatasource {
 
     if (response.statusCode == 200) {
       return GetJobOngoingResponseModel.fromJson(response.body);
+    } else if (response.statusCode == 403) {
+      log('403 Forbidden for ongoing jobs', name: 'GetJobOngoingDatasource', level: 1000);
+      return GetJobOngoingResponseModel();
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
       log(response.body, name: 'GetJobOngoingDatasource', level: 1200);

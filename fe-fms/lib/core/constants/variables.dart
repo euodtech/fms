@@ -38,6 +38,8 @@ class Variables {
   static const String postponeJobEndpoint = '$baseUrl/postpone-job';
   static const String cancelJobEndpoint = '$baseUrl/cancel-job';
   static const String rescheduleJobEndpoint = '$baseUrl/reschedule-job';
+  static String getRescheduleStatusEndpoint(int jobId) =>
+      '$baseUrl/reschedule-status/$jobId';
 
   // Traxroot endpoints
   /// Base URL for direct Traxroot API (used with proxy-obtained token).

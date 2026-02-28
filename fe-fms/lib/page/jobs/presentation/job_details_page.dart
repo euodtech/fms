@@ -85,15 +85,33 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final job = widget.job;
     final isOngoing = widget.isOngoing;
     final int? jobIdValue = job.jobId is int ? job.jobId as int : null;
-    final rescheduledDate = jobIdValue != null
-        ? _jobsController.rescheduledJobs[jobIdValue]
-        : null;
-    final hasRescheduled =
-        jobIdValue != null &&
-        _jobsController.rescheduledJobs.containsKey(jobIdValue);
     final bool isRescheduledStatus = isOngoing && job.status == 3;
     final bool hasPendingAction =
         jobIdValue != null && _jobsController.isJobPendingUpload(jobIdValue);
+
+    // Server-provided reschedule info (from get_job_ongoing)
+    final int? rescheduleStatus = job.rescheduleStatus;
+    final bool? serverCanFinish = job.canFinish;
+    final String? rescheduledDateJob = job.rescheduledDateJob;
+    final String? reasonReject = job.reasonReject;
+
+    // Local fallback: rescheduledJobs map (for optimistic UI after reschedule request)
+    final localRescheduledDate = jobIdValue != null
+        ? _jobsController.rescheduledJobs[jobIdValue]
+        : null;
+
+    // Determine if finish is allowed.
+    // serverCanFinish == null means the backend hasn't been updated yet —
+    // treat as allowed (backward compatible with old API).
+    final bool canFinish = (serverCanFinish ?? true) &&
+        !hasPendingAction &&
+        localRescheduledDate == null;
+    // Determine if reschedule button is allowed (enabled for ongoing status 1,
+    // or after rejection, or after approval)
+    final bool canReschedule = isOngoing &&
+        !hasPendingAction &&
+        localRescheduledDate == null &&
+        rescheduleStatus != 1; // blocked only when pending
 
     Widget buildPill(
       String label, {
@@ -351,14 +369,40 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                   ),
                                   borderColor: Colors.white,
                                 ),
-                              if (rescheduledDate != null)
+                              // Reschedule status badges
+                              if (rescheduleStatus == 1 ||
+                                  (localRescheduledDate != null &&
+                                      rescheduleStatus != 2 &&
+                                      rescheduleStatus != 3))
                                 buildPill(
-                                  'Rescheduled: ${DateFormat('EEE, dd MMM yyyy HH:mm').format(ManilaTimezone.convert(rescheduledDate))}',
+                                  'Reschedule Pending',
+                                  icon: Icons.hourglass_top,
+                                  foreground: Colors.white,
+                                  background: Colors.amber.withValues(alpha: 0.32),
+                                  borderColor: Colors.white,
+                                ),
+                              if (rescheduleStatus == 3)
+                                buildPill(
+                                  'Reschedule Rejected',
+                                  icon: Icons.cancel_outlined,
+                                  foreground: Colors.white,
+                                  background: Colors.red.withValues(alpha: 0.32),
+                                  borderColor: Colors.white,
+                                ),
+                              if (rescheduleStatus == 2 && serverCanFinish != true)
+                                buildPill(
+                                  'Rescheduled to ${rescheduledDateJob ?? ''}',
                                   icon: Icons.event_repeat,
                                   foreground: Colors.white,
-                                  background: Colors.orange.withValues(
-                                    alpha: 0.28,
-                                  ),
+                                  background: Colors.green.withValues(alpha: 0.28),
+                                  borderColor: Colors.white,
+                                ),
+                              if (rescheduleStatus == 2 && serverCanFinish == true)
+                                buildPill(
+                                  'Rescheduled — Ready',
+                                  icon: Icons.check_circle_outline,
+                                  foreground: Colors.white,
+                                  background: Colors.green.withValues(alpha: 0.28),
                                   borderColor: Colors.white,
                                 ),
                             ],
@@ -558,6 +602,94 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                   ),
                 ),
 
+                // Reschedule rejection info
+                if (isOngoing && rescheduleStatus == 3 && reasonReject != null) ...[
+                  const SizedBox(height: sectionSpacing),
+                  Card(
+                    elevation: 0,
+                    color: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFF3F0), Color(0xFFFFE8E4)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            buildSectionHeader(
+                              icon: Icons.warning_amber_rounded,
+                              title: 'Reschedule Rejected',
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              reasonReject,
+                              style: textTheme.bodyMedium?.copyWith(height: 1.5),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'You must complete this job.',
+                              style: textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Reschedule pending info
+                if (isOngoing && (rescheduleStatus == 1 || localRescheduledDate != null)) ...[
+                  const SizedBox(height: sectionSpacing),
+                  Card(
+                    elevation: 0,
+                    color: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFF8E1), Color(0xFFFFF3CD)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            buildSectionHeader(
+                              icon: Icons.hourglass_top,
+                              title: 'Reschedule Pending',
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Your reschedule request is awaiting admin approval.',
+                              style: textTheme.bodyMedium?.copyWith(height: 1.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 120),
               ],
             ),
@@ -626,7 +758,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                   if (isOngoing)
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: hasRescheduled || hasPendingAction
+                        onPressed: isRescheduledStatus || hasPendingAction
                             ? null
                             : () {
                                 _cancelJob(context);
@@ -648,16 +780,35 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                         ),
                       ),
                     ),
+                  if (isOngoing && canReschedule) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showRescheduleDialog(context),
+                        icon: const Icon(Icons.event_repeat),
+                        label: const Text('Reschedule'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          side: BorderSide(
+                            color: Colors.orange.withValues(alpha: 0.5),
+                          ),
+                          foregroundColor: Colors.orange,
+                          overlayColor: Colors.orange.withValues(alpha: 0.08),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: (isOngoing && hasRescheduled) || hasPendingAction
+                      onPressed: hasPendingAction
                           ? null
-                          : () {
-                              isOngoing
-                                  ? _finishJob(context)
-                                  : _startJob(context);
-                            },
+                          : isOngoing
+                              ? (canFinish ? () => _finishJob(context) : null)
+                              : () => _startJob(context),
                       icon: const Icon(Icons.play_arrow_rounded),
                       label: Text(hasPendingAction
                           ? 'Pending Upload'
@@ -806,17 +957,6 @@ Future<void> _finishJob(BuildContext context) async {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Job ID not found'))
-    );
-    return;
-  }
-
-  if (_jobsController.rescheduledJobs.containsKey(jobId)) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Job already rescheduled. Finish action disabled.', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.orange,
-      ),
     );
     return;
   }
@@ -1326,7 +1466,10 @@ Future<void> _finishJob(BuildContext context) async {
   }
 
   /// Shows a dialog to reschedule the job to a future date.
-  Future<void> _showRescheduleDialog(BuildContext context) async {
+  ///
+  /// Returns `true` if the reschedule succeeded, `false` if the server
+  /// rejected it, or `null` if the user dismissed the dialog.
+  Future<bool?> _showRescheduleDialog(BuildContext context) async {
     final jobId = widget.job.jobId as int?;
     if (jobId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1338,7 +1481,7 @@ Future<void> _finishJob(BuildContext context) async {
           backgroundColor: Colors.red,
         ),
       );
-      return;
+      return null;
     }
 
     final theme = Theme.of(context);
@@ -1626,7 +1769,7 @@ Future<void> _finishJob(BuildContext context) async {
     );
 
     if (result == null || !mounted) {
-      return;
+      return null;
     }
 
     // Process reschedule
@@ -1646,7 +1789,7 @@ Future<void> _finishJob(BuildContext context) async {
         notes: notes,
       );
 
-      if (!mounted) return;
+      if (!mounted) return null;
 
       Navigator.of(context).pop(); // Close loading
 
@@ -1673,10 +1816,12 @@ Future<void> _finishJob(BuildContext context) async {
         if (mounted) {
           setState(() {});
         }
-        return;
+        return true;
       }
+
+      return false;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return null;
       log('Failed to reschedule job: ${e.toString()}');
       Navigator.of(context).pop(); // Close loading
 
@@ -1691,6 +1836,7 @@ Future<void> _finishJob(BuildContext context) async {
         text: errorMessage,
         backgroundColor: Colors.red,
       ).showErrorSnackBar(context);
+      return false;
     }
   }
 
@@ -1703,30 +1849,6 @@ Future<void> _finishJob(BuildContext context) async {
         text: 'Job ID not found',
         backgroundColor: Colors.red,
       ).showErrorSnackBar(context);
-      return;
-    }
-
-    if (_jobsController.rescheduledJobs.containsKey(jobId)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Job already rescheduled. Cancellation disabled.',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-    // First, show reschedule dialog
-    await _showRescheduleDialog(context);
-
-    // If user returns from reschedule dialog without rescheduling,
-    // they might want to proceed with cancel
-    if (!mounted) return;
-
-    if (!mounted || _jobsController.rescheduledJobs.containsKey(jobId)) {
       return;
     }
 

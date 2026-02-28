@@ -202,7 +202,12 @@ class AuthController extends GetxController {
   /// Removes stored credentials, clears cached data in controllers, and
   /// redirects the user to the login page.
   Future<void> logout() async {
-    // Clear all data
+    // Call server-side logout + clear SharedPreferences
+    try {
+      await AuthRemoteDataSource().logout();
+    } catch (_) {}
+
+    // Clear secure storage
     await _storage.deleteAll();
     apiKey.value = '';
     isAuthenticated.value = false;

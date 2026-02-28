@@ -52,7 +52,6 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Obx(() {
             final profile = _controller.profile.value;
             final loading = _controller.isLoading.value;
-            debugPrint('Profile Data Content: ${profile?.data?.toJson()}');
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -98,6 +97,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
+                if (_controller.error.value != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Card(
+                      color: Colors.red.shade50,
+                      child: ListTile(
+                        leading: Icon(Icons.error_outline, color: Colors.red.shade700),
+                        title: Text(
+                          _controller.error.value!,
+                          style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                        ),
+                        trailing: TextButton(
+                          onPressed: () => _controller.fetchProfile(),
+                          child: const Text('RETRY'),
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 Card(
                   child: Padding(

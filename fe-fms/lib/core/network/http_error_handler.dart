@@ -9,8 +9,25 @@ class HttpErrorHandler {
   /// [statusCode] - The HTTP status code.
   /// [responseBody] - The body of the response.
   static void handleResponse(int statusCode, String responseBody) {
-    if (statusCode == 401) {
-      _handleUnauthorized();
+    switch (statusCode) {
+      case 401:
+        _handleUnauthorized();
+        break;
+      case 403:
+        debugPrint('HttpErrorHandler: 403 Forbidden');
+        break;
+      case 429:
+        debugPrint('HttpErrorHandler: 429 Rate Limited');
+        break;
+      case 500:
+      case 502:
+      case 503:
+        debugPrint('HttpErrorHandler: Server error $statusCode');
+        break;
+      default:
+        if (statusCode >= 400) {
+          debugPrint('HttpErrorHandler: HTTP error $statusCode');
+        }
     }
   }
 

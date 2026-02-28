@@ -25,35 +25,38 @@ class ProfileRemoteDataSource {
     }
 
     final endpoint = Variables.getProfileEndpoint(userId);
+    log('Fetching profile: userId=$userId, endpoint=$endpoint', name: 'ProfileRemoteDataSource', level: 800);
     final uri = Uri.parse(endpoint);
     final response = await ApiClient.get(
       uri,
       headers: {'X-API-Key': apiKey, 'Accept': 'application/json'},
     );
     log(
-      response.statusCode.toString(),
+      'Status: ${response.statusCode}',
       name: 'ProfileRemoteDataSource',
       level: 800,
     );
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      log(response.body, name: 'ProfileRemoteDataSource.raw', level: 800);
       final model = ProfileResponseModel.fromJson(response.body);
       if (model.success == true && model.data != null) {
         return model;
       } else {
-        throw 'Failed to load profile: invalid response';
+        throw Exception('Profile response invalid: success=${model.success}, data=${model.data}');
       }
     } else {
       HttpErrorHandler.handleResponse(response.statusCode, response.body);
-      String message = 'Failed to load profile (${response.statusCode})';
       log(response.body, name: 'ProfileRemoteDataSource', level: 1200);
+      String message = 'Failed to load profile (${response.statusCode})';
       try {
         final decoded = json.decode(response.body) as Map<String, dynamic>;
         if (decoded['message'] != null) message = decoded['message'].toString();
+        else if (decoded['Message'] != null) message = decoded['Message'].toString();
       } catch (_) {}
       if (message.toLowerCase().contains('company subscription mismatch')) {
         ApiClient.resetLogoutFlag();
       }
-      return ProfileResponseModel();
+      throw Exception(message);
     }
   }
 }

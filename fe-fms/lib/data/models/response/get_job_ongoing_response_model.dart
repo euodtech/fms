@@ -49,6 +49,10 @@ class Data {
   final String? latitude;
   final String? longitude;
   final String? typeJobName;
+  final int? rescheduleStatus;
+  final String? rescheduledDateJob;
+  final String? reasonReject;
+  final bool? canFinish;
 
   Data({
     this.jobId,
@@ -72,6 +76,10 @@ class Data {
     this.latitude,
     this.longitude,
     this.typeJobName,
+    this.rescheduleStatus,
+    this.rescheduledDateJob,
+    this.reasonReject,
+    this.canFinish,
   });
 
   factory Data.fromJson(String str) => Data.fromMap(json.decode(str));
@@ -104,6 +112,10 @@ class Data {
     latitude: json["Latitude"],
     longitude: json["Longitude"],
     typeJobName: json["TypeJobName"],
+    rescheduleStatus: json["RescheduleStatus"],
+    rescheduledDateJob: json["RescheduledDateJob"],
+    reasonReject: json["ReasonReject"],
+    canFinish: json["CanFinish"],
   );
 
   Map<String, dynamic> toMap() => {
@@ -128,5 +140,9 @@ class Data {
     "Latitude": latitude,
     "Longitude": longitude,
     "TypeJobName": typeJobName,
+    "RescheduleStatus": rescheduleStatus,
+    "RescheduledDateJob": rescheduledDateJob,
+    "ReasonReject": reasonReject,
+    "CanFinish": canFinish,
   };
 }

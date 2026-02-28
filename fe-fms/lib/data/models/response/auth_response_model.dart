@@ -12,11 +12,13 @@ class AuthResponseModel {
 
   String toJson() => json.encode(toMap());
 
-  factory AuthResponseModel.fromMap(Map<String, dynamic> json) =>
-      AuthResponseModel(
-        success: json["Success"],
-        data: json["Data"] == null ? null : Data.fromMap(json["Data"]),
-      );
+  factory AuthResponseModel.fromMap(Map<String, dynamic> json) {
+    final data = json["Data"] ?? json["data"];
+    return AuthResponseModel(
+      success: json["Success"] ?? json["success"],
+      data: data == null ? null : Data.fromMap(data),
+    );
+  }
 
   Map<String, dynamic> toMap() => {"Success": success, "Data": data?.toMap()};
 }
@@ -46,13 +48,13 @@ class Data {
   String toJson() => json.encode(toMap());
 
   factory Data.fromMap(Map<String, dynamic> json) => Data(
-    userId: json["UserID"],
-    apiKey: json["ApiKey"],
-    company: json["Company"],
-    companyId: json["CompanyID"],
-    companyType: json["CompanyType"],
-    companyLabel: json["CompanyLabel"],
-    hasTraxroot: _parseBool(json["HasTraxroot"]),
+    userId: json["UserID"] ?? json["userId"] ?? json["user_id"],
+    apiKey: json["ApiKey"] ?? json["apiKey"] ?? json["api_key"],
+    company: json["Company"] ?? json["company"],
+    companyId: json["CompanyID"] ?? json["companyId"] ?? json["company_id"],
+    companyType: json["CompanyType"] ?? json["companyType"] ?? json["company_type"],
+    companyLabel: json["CompanyLabel"] ?? json["companyLabel"] ?? json["company_label"],
+    hasTraxroot: _parseBool(json["HasTraxroot"] ?? json["hasTraxroot"] ?? json["has_traxroot"]),
   );
 
   /// Parses a value to bool, handling bool, int (1/0), and string ("true"/"1").

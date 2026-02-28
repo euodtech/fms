@@ -452,50 +452,75 @@ class JobHistoryDetailPage extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 12),
-
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
+                // Photos section — only show if details with photos exist
+                if (job.details != null &&
+                    job.details!.any((d) => d.photoUrl != null)) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    color: Colors.transparent,
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(22),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFFFFF), Color(0xFFF6F8FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: const Color(0x2132638F)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1432638F),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
-                        ),
-                      ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildSectionHeader(
-                            icon: Icons.work_outline,
-                            title: 'Work Details',
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Job completed successfully. All electrical connections have been restored and tested.',
-                            style: textTheme.bodyMedium?.copyWith(height: 1.5),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFFFFF), Color(0xFFF6F8FF)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(color: const Color(0x2132638F)),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1432638F),
+                            blurRadius: 24,
+                            offset: Offset(0, 12),
                           ),
                         ],
                       ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            buildSectionHeader(
+                              icon: Icons.photo_library_outlined,
+                              title: 'Photos',
+                            ),
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: job.details!
+                                  .where((d) => d.photoUrl != null)
+                                  .map(
+                                    (d) => ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        d.photoUrl!,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            Container(
+                                          width: 100,
+                                          height: 100,
+                                          color: Colors.grey[200],
+                                          child: const Icon(
+                                              Icons.broken_image),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
 
                 const SizedBox(height: 120),
               ],
