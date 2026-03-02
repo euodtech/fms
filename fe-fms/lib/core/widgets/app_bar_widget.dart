@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,14 +7,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../page/profile/presentation/profile_page.dart';
 import '../../core/constants/variables.dart';
 
-class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
+class AppBarWidget extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   const AppBarWidget({super.key, required this.title});
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
-  /// Get the stored company logo URL
+  @override
+  State<AppBarWidget> createState() => _AppBarWidgetState();
+}
+
+class _AppBarWidgetState extends State<AppBarWidget> {
+  late final Future<String?> _logoFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _logoFuture = _getCompanyLogo();
+  }
+
   Future<String?> _getCompanyLogo() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(Variables.companyLogo);
@@ -21,32 +35,36 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: Text(title),
+      title: Text(widget.title),
       leading: Padding(
         padding: const EdgeInsets.all(8.0),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: FutureBuilder<String?>(
-            future: _getCompanyLogo(),
+            future: _logoFuture,
             builder: (context, snapshot) {
               final logoUrl = snapshot.data;
 
-              // Use the logo if it exists and is not empty
               if (logoUrl != null && logoUrl.isNotEmpty) {
-                final fullUrl = logoUrl.startsWith('http')
-                    ? logoUrl
-                    : '${Variables.imageBaseUrl}$logoUrl';
+                log('Loading company logo: $logoUrl',
+                    name: 'AppBarWidget', level: 800);
                 return Image.network(
-                  fullUrl,
+                  logoUrl,
                   width: 25,
                   height: 25,
                   fit: BoxFit.cover,
-                  // Fallback to default if network fails
-                  errorBuilder: (_, __, ___) => _defaultLogo(),
+                  errorBuilder: (_, error, _) {
+                    log('Company logo failed to load: $error (url: $logoUrl)',
+                        name: 'AppBarWidget', level: 900);
+                    return _defaultLogo();
+                  },
                 );
               }
 
-              // Otherwise, show default logo
+              if (snapshot.connectionState == ConnectionState.done) {
+                log('No company logo URL stored in SharedPreferences',
+                    name: 'AppBarWidget', level: 900);
+              }
               return _defaultLogo();
             },
           ),
@@ -63,7 +81,6 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  /// Default logo widget
   Widget _defaultLogo() {
     return Image.asset(
       'assets/images/logo.jpg',

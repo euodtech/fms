@@ -17,12 +17,21 @@ class NavBar extends StatefulWidget {
 
 class _NavBarState extends State<NavBar> {
   late final NavigationController navController;
+  late final Worker _roleWorker;
 
   @override
   void initState() {
     super.initState();
     navController = Get.put(NavigationController());
     _configureTabs();
+    final authController = Get.find<AuthController>();
+    _roleWorker = ever(authController.userRole, (_) => _configureTabs());
+  }
+
+  @override
+  void dispose() {
+    _roleWorker.dispose();
+    super.dispose();
   }
 
   void _configureTabs() {

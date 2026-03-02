@@ -89,11 +89,11 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final bool hasPendingAction =
         jobIdValue != null && _jobsController.isJobPendingUpload(jobIdValue);
 
-    // Server-provided reschedule info (from get_job_ongoing)
-    final int? rescheduleStatus = job.rescheduleStatus;
-    final bool? serverCanFinish = job.canFinish;
-    final String? rescheduledDateJob = job.rescheduledDateJob;
-    final String? reasonReject = job.reasonReject;
+    // Server-provided reschedule info (only available on ongoing job model)
+    final int? rescheduleStatus = isOngoing ? job.rescheduleStatus : null;
+    final bool? serverCanFinish = isOngoing ? job.canFinish : null;
+    final String? rescheduledDateJob = isOngoing ? job.rescheduledDateJob : null;
+    final String? reasonReject = isOngoing ? job.reasonReject : null;
 
     // Local fallback: rescheduledJobs map (for optimistic UI after reschedule request)
     final localRescheduledDate = jobIdValue != null
@@ -1812,10 +1812,12 @@ Future<void> _finishJob(BuildContext context) async {
       );
 
       if (success) {
-        _jobsController.markJobRescheduled(jobId, scheduledDate);
-        if (mounted) {
-          setState(() {});
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _jobsController.markJobRescheduled(jobId, scheduledDate);
+          if (mounted) {
+            setState(() {});
+          }
+        });
         return true;
       }
 
