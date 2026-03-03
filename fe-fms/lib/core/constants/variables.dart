@@ -9,8 +9,8 @@ class Variables {
   // Use --dart-define=BASE_URL=<url> to override at build/run time (default: production)
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
-    // defaultValue: 'http://quetraverse.pro/efms/api/myapi',
-    defaultValue: 'http://10.0.2.2:8000/myapi',
+    defaultValue: 'https://jms.euodoo.com.ph/api/myapi',
+    // defaultValue: 'http://10.0.2.2:8000/myapi',
     // defaultValue: 'http://192.168.254.110:8000/myapi',
   );
   // API endpoints helper methods
@@ -30,7 +30,6 @@ class Variables {
   static const String getJobEndpoint = '$baseUrl/get-job';
 
   static const String driverGetJobEndpoint = '$baseUrl/driver-get-job';
-  static const String driverGetJob = '$baseUrl/driver-get-job?';
   static const String finishedJobEndpoint = '$baseUrl/finished-job';
   static const String reportJobEndpoint = '$baseUrl/report-job';
   static const String postponeJobEndpoint = '$baseUrl/postpone-job';
@@ -38,6 +37,7 @@ class Variables {
   static const String rescheduleJobEndpoint = '$baseUrl/reschedule-job';
   static String getRescheduleStatusEndpoint(int jobId) =>
       '$baseUrl/reschedule-status/$jobId';
+  static const String updateFcmTokenEndpoint = '$baseUrl/update-fcm-token';
 
   // Traxroot endpoints
   /// Base URL for direct Traxroot API (used with proxy-obtained token).

@@ -82,6 +82,12 @@ Future<AuthResponseModel> login({
         else if (data['logo'] != null) companyLogo = data['logo'].toString();
 
         if (companyLogo != null && companyLogo.isNotEmpty) {
+          // If the logo is a relative path, prepend the server origin
+          if (!companyLogo.startsWith('http')) {
+            final baseUri = Uri.parse(Variables.baseUrl);
+            final origin = '${baseUri.scheme}://${baseUri.host}';
+            companyLogo = '$origin$companyLogo';
+          }
           await prefs.setString(Variables.companyLogo, companyLogo);
           log('Persisted company logo: $companyLogo',
               name: 'AuthRemoteDataSource', level: 800);
@@ -280,7 +286,7 @@ Future<AuthResponseModel> login({
     if (apiKey == null) {
       throw Exception('API Key not found');
     }
-    final url = Uri.parse('${Variables.baseUrl}/api/update-fcm-token');
+    final url = Uri.parse(Variables.updateFcmTokenEndpoint);
     final response = await http.post(
       url,
       headers: {

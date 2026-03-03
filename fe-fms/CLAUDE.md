@@ -16,10 +16,10 @@ flutter pub get
 flutter run
 
 # Run with custom API base URL
-flutter run --dart-define=BASE_URL=http://your-server/myapi
+flutter run --dart-define=BASE_URL=https://your-server/api/myapi
 
-# Build APK
-flutter build apk --dart-define=BASE_URL=http://production-server/myapi
+# Build APK (default BASE_URL points to production)
+flutter build apk --release
 
 # Regenerate app icons after changing assets/images/logo.jpg
 dart run flutter_launcher_icons
@@ -28,7 +28,7 @@ dart run flutter_launcher_icons
 flutter test
 ```
 
-The `BASE_URL` is configured via `--dart-define` and defaults to `http://192.168.254.110:8000/myapi` in `lib/core/constants/variables.dart`.
+The `BASE_URL` is configured via `--dart-define` and defaults to `https://jms.euodoo.com.ph/api/myapi` in `lib/core/constants/variables.dart`.
 
 ## Architecture
 
