@@ -7,8 +7,8 @@ import 'package:fms/page/home/controller/home_controller.dart';
 import 'package:fms/page/vehicles/presentation/vehicle_tracking_page.dart';
 import 'package:fms/core/services/subscription.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fms/core/constants/variables.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
+import 'package:fms/core/widgets/skeleton_loading.dart';
 
 import '../../../core/models/geo.dart';
 
@@ -97,27 +97,25 @@ class _MovingVehicleBanner extends StatelessWidget {
 class _HomeTabState extends State<HomeTab> {
   bool _isMarkerLoading = false;
   Timer? _autoTimer;
-  String? _userRole;
+  late final String? _userRole;
 
   @override
   void initState() {
     super.initState();
-    final controller = Get.put(HomeController());
-    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted) return;
-      if (!controller.isLoading.value) {
-        controller.refreshStatuses();
-      }
-    });
+    // Read role synchronously from AuthController (set during checkSession)
+    _userRole = Get.find<AuthController>().userRole.value?.toLowerCase().trim();
 
-    // Load persisted role (if any)
-    SharedPreferences.getInstance().then((prefs) {
-      final role = prefs.getString(Variables.prefUserRole)?.toLowerCase().trim();
-      if (mounted) {
-        setState(() => _userRole = role);
-      }
-      debugPrint('HomeTab: loaded userRole=$_userRole');
-    });
+    final controller = Get.put(HomeController());
+
+    // Only start vehicle position polling for roles that display the map
+    if (_userRole != 'field') {
+      _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (!mounted) return;
+        if (!controller.isLoading.value) {
+          controller.refreshStatuses();
+        }
+      });
+    }
   }
 
   @override
@@ -193,8 +191,6 @@ class _HomeTabState extends State<HomeTab> {
     final showMap = (_userRole != 'field'); // hide map for 'field'
     final showOverview = isPro && (_userRole != 'monitor'); // hide overview for basic users & Pro monitors
 
-    debugPrint('HomeTab build: isPro=$isPro userRole=$_userRole showMap=$showMap showOverview=$showOverview');
-
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: RefreshIndicator(
@@ -226,7 +222,29 @@ class _HomeTabState extends State<HomeTab> {
               // Map area or Overview when map hidden for 'field'
               Expanded(
                 child: controller.isLoading.value
-                    ? const Center(child: CircularProgressIndicator())
+                    ? ShimmerProvider(
+                        child: showMap && showOverview
+                            ? Column(
+                                children: const [
+                                  Expanded(child: SkeletonMapPlaceholder()),
+                                  SizedBox(height: 12),
+                                  SkeletonStatCards(),
+                                ],
+                              )
+                            : showMap
+                                ? const SkeletonMapPlaceholder()
+                                : showOverview
+                                    ? const SingleChildScrollView(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            SizedBox(height: 8),
+                                            SkeletonStatCards(),
+                                          ],
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                      )
                     : showMap
                         ? Stack(
                             children: [
@@ -326,7 +344,7 @@ class _HomeTabState extends State<HomeTab> {
                               ) ),
               ),
 
-              if (controller.error.value.isNotEmpty) ...[
+              if (showMap && controller.error.value.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   controller.error.value,

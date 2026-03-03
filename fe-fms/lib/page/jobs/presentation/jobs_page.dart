@@ -6,6 +6,7 @@ import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/jobs/presentation/job_details_page.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
+import 'package:fms/core/widgets/skeleton_loading.dart';
 import '../widget/job_summary_card.dart';
 import '../widget/history_filter_bar.dart';
 import 'job_history_detail_page.dart';
@@ -77,7 +78,22 @@ class JobsPage extends StatelessWidget {
 
     return Obx(() {
       if (controller.isLoadingAllJobs.value) {
-        return const Center(child: CircularProgressIndicator());
+        return ShimmerProvider(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            children: const [
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+            ],
+          ),
+        );
       }
       if (controller.errorAllJobs.value != null) {
         return _buildRefreshableMessage(
@@ -147,7 +163,22 @@ class JobsPage extends StatelessWidget {
 
     return Obx(() {
       if (controller.isLoadingOngoingJobs.value) {
-        return const Center(child: CircularProgressIndicator());
+        return ShimmerProvider(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            children: const [
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+            ],
+          ),
+        );
       }
       if (controller.errorOngoingJobs.value != null) {
         return _buildRefreshableMessage(
@@ -219,7 +250,22 @@ class JobsPage extends StatelessWidget {
 
     return Obx(() {
       if (controller.isLoadingHistoryJobs.value) {
-        return const Center(child: CircularProgressIndicator());
+        return ShimmerProvider(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            children: const [
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+              SizedBox(height: 10),
+              SkeletonJobCard(),
+            ],
+          ),
+        );
       }
       if (controller.errorHistoryJobs.value != null) {
         return _buildRefreshableMessage(

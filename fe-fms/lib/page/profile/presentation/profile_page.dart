@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:fms/core/services/subscription.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/core/constants/variables.dart';
+import 'package:fms/core/widgets/skeleton_loading.dart';
 import '../controller/profile_controller.dart';
 import '../widget/change_password_dialog.dart';
 import '../../../nav_bar.dart';
@@ -52,27 +53,26 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Obx(() {
             final profile = _controller.profile.value;
             final loading = _controller.isLoading.value;
+
+            if (loading) {
+              return const ShimmerProvider(child: SkeletonProfile());
+            }
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Card(
                   child: ListTile(
-                    // 1. Ensures leading/trailing are vertically centered with the text
-                    isThreeLine: false, 
+                    isThreeLine: false,
                     leading: const CircleAvatar(
                       radius: 26,
                       child: Icon(Icons.person),
                     ),
                     title: Text(
-                      loading
-                          ? 'Loading...'
-                          : (profile?.data?.fullname ?? 'Unknown'),
+                      profile?.data?.fullname ?? 'Unknown',
                     ),
-                    // 2. Using a simple Text widget instead of a Column fixes internal alignment
                     subtitle: Text(
-                      loading
-                          ? 'Loading...'
-                          : (profile?.data?.email ?? 'Unknown'),
+                      profile?.data?.email ?? 'Unknown',
                     ),
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(
@@ -91,7 +91,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           color: isPro
                               ? Colors.blue.shade700
                               : Colors.grey.shade700,
-                          fontWeight: FontWeight.bold, // Optional: makes the badge pop
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),

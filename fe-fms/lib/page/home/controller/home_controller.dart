@@ -19,6 +19,7 @@ import 'package:fms/core/services/home_widget_service.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:fms/core/constants/variables.dart';
 import 'package:fms/core/navigation/navigation_controller.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Controller for the home screen, managing map data, jobs, and vehicle tracking.
@@ -72,6 +73,9 @@ class HomeController extends GetxController {
   }
 
   /// Loads all initial data for the home screen.
+  ///
+  /// Skips Traxroot/GPS fetching for field users (they only see job stats).
+  /// Skips job fetching for monitor users (they only see the map).
   Future<void> loadData() async {
     isLoading.value = true;
     error.value = '';
@@ -80,6 +84,12 @@ class HomeController extends GetxController {
       final prefs = await SharedPreferences.getInstance();
       final hasTraxroot =
           prefs.getBool(Variables.prefHasTraxroot) ?? false;
+
+      // Read role from AuthController (already set during checkSession)
+      final role = Get.find<AuthController>().userRole.value?.toLowerCase().trim();
+      final isField = role == 'field';
+      final isMonitor = role == 'monitor';
+
       // Check for widget launch
       final widgetUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
       if (widgetUri != null) {
@@ -89,17 +99,25 @@ class HomeController extends GetxController {
       // Listen for widget clicks while app is running
       HomeWidget.widgetClicked.listen(_handleWidgetNavigation);
 
-      // Always load job-related data
-      final allJobsFuture = GetJobDatasource().getJob();
-      final ongoingJobsFuture = GetJobOngoingDatasource().getOngoingJobs();
-      final completedJobsFuture = GetJobHistoryDatasource().getJobHistory();
+      // Load job data only for roles that display the overview stats
+      Future<GetJobResponseModel?>? allJobsFuture;
+      Future<ongoing.GetJobOngoingResponseModel?>? ongoingJobsFuture;
+      Future<history.GetJobHistoryResponseModel?>? completedJobsFuture;
 
-      // Conditionally load Traxroot map/vehicle data only when credentials exist
+      if (!isMonitor) {
+        allJobsFuture = GetJobDatasource().getJob();
+        ongoingJobsFuture = GetJobOngoingDatasource().getOngoingJobs();
+        completedJobsFuture = GetJobHistoryDatasource().getJobHistory();
+      }
+
+      // Conditionally load Traxroot map/vehicle data — skip for field users
       List<TraxrootObjectModel> objectsData = <TraxrootObjectModel>[];
       List<TraxrootIconModel> icons = <TraxrootIconModel>[];
       List<TraxrootGeozoneModel> geozones = <TraxrootGeozoneModel>[];
 
-      if (hasTraxroot) {
+      if (isField) {
+        // Field users don't see the map — skip Traxroot entirely, no error
+      } else if (hasTraxroot) {
         final objectsFuture = _objectsDatasource.getObjects();
         final iconsFuture = _objectsDatasource.getObjectIcons();
         final geozonesFuture = _internalDatasource.getGeozones();
@@ -267,7 +285,9 @@ class HomeController extends GetxController {
       zones.value = zonesList;
       objects.value = statusList;
       iconUrlByObjectId.value = iconUrlMap;
-      await _detectMovement(statusList);
+      if (!isField) {
+        await _detectMovement(statusList);
+      }
       allJobsResponse.value = allJobs;
       ongoingJobsResponse.value = ongoingJobs;
       completedJobsResponse.value = completedJobs;
@@ -275,7 +295,7 @@ class HomeController extends GetxController {
 
       _precacheIcons(usedIconUrls);
       _updateWidgets();
-      if (error.value.isEmpty) {
+      if (!isField && error.value.isEmpty) {
         final authError = TraxrootAuthDatasource.lastErrorMessage;
         if (authError != null &&
             authError.toLowerCase().contains('invalid username or password')) {
