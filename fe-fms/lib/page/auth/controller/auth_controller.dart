@@ -108,9 +108,16 @@ class AuthController extends GetxController {
     final dataSource = AuthRemoteDataSource();
 
     try {
+      // Get FCM token to send with login request
+      String? fcmToken;
+      try {
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } catch (_) {}
+
       final res = await dataSource.login(
         email: email.trim(),
         password: password,
+        firebaseToken: fcmToken,
       );
 
       final prefs = await SharedPreferences.getInstance();

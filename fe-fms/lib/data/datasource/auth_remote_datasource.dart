@@ -20,8 +20,14 @@ class AuthRemoteDataSource {
 Future<AuthResponseModel> login({
   required String email,
   required String password,
+  String? firebaseToken,
 }) async {
   final uri = Uri.parse(Variables.loginEndpoint);
+
+  final body = <String, dynamic>{'email': email, 'password': password};
+  if (firebaseToken != null && firebaseToken.isNotEmpty) {
+    body['firebasetoken'] = firebaseToken;
+  }
 
   final response = await http.post(
     uri,
@@ -29,7 +35,7 @@ Future<AuthResponseModel> login({
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    body: jsonEncode(<String, dynamic>{'email': email, 'password': password}),
+    body: jsonEncode(body),
   );
 
   log(

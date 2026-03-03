@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +12,7 @@ import 'package:fms/core/constants/variables.dart';
 import 'package:fms/core/navigation/navigation_controller.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
+import 'package:fms/page/jobs/presentation/job_details_page.dart';
 
 /// Top-level function required by Firebase for background isolate invocation.
 @pragma('vm:entry-point')
@@ -21,6 +24,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     title: message.notification?.title,
     body: message.notification?.body,
     jobId: message.data['job_id'],
+    type: message.data['type'],
   );
 }
 
@@ -122,7 +126,10 @@ class FirebaseMessangingRemoteDatasource {
     // 7. Handle cold-start tap (app was killed, user tapped notification).
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) {
-      _navigateToJobs();
+      _handleNotificationNavigation(
+        jobId: initial.data['job_id'],
+        type: initial.data['type'],
+      );
     }
 
     // 8. Foreground messages — show local notification + refresh jobs.
@@ -133,6 +140,7 @@ class FirebaseMessangingRemoteDatasource {
         title: notification.title,
         body: notification.body,
         jobId: msg.data['job_id'],
+        type: msg.data['type'],
       );
       if (Get.isRegistered<JobsController>()) {
         Get.find<JobsController>().refresh();
@@ -140,17 +148,26 @@ class FirebaseMessangingRemoteDatasource {
     });
 
     // 9. Background tap — user tapped notification while app was in background.
-    FirebaseMessaging.onMessageOpenedApp.listen((_) => _navigateToJobs());
+    FirebaseMessaging.onMessageOpenedApp.listen((msg) {
+      _handleNotificationNavigation(
+        jobId: msg.data['job_id'],
+        type: msg.data['type'],
+      );
+    });
   }
 
-  /// Shows a local notification.
+  /// Shows a local notification with job_id and type encoded in the payload.
   Future<void> showNotification({
     String? title,
     String? body,
     String? jobId,
+    String? type,
   }) async {
     final id = int.tryParse(jobId ?? '') ??
         (DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+    // Encode job_id and type as JSON payload so the tap handler can use them.
+    final payload = jsonEncode({'job_id': jobId ?? '', 'type': type ?? ''});
 
     await _localNotifications.show(
       id,
@@ -173,22 +190,96 @@ class FirebaseMessangingRemoteDatasource {
           presentSound: true,
         ),
       ),
+      payload: payload,
     );
   }
 
-  void _navigateToJobs() {
+  /// Notification types that should navigate to job details.
+  static const _jobNotificationTypes = {
+    'new_job',
+    'job_assigned',
+    'job_reassigned',
+    'reschedule_approved',
+    'reschedule_rejected',
+  };
+
+  /// Navigate to job details if a valid job_id is provided, otherwise just
+  /// switch to the Jobs tab and refresh.
+  void _handleNotificationNavigation({String? jobId, String? type}) {
+    // Refresh job lists first.
+    if (Get.isRegistered<JobsController>()) {
+      Get.find<JobsController>().refresh();
+    }
+
+    final parsedId = int.tryParse(jobId ?? '');
+    final hasValidJobId = parsedId != null && parsedId > 0;
+    final isJobType = type == null || _jobNotificationTypes.contains(type);
+
+    if (hasValidJobId && isJobType) {
+      _navigateToJobDetails(parsedId);
+    } else {
+      // Fallback: just switch to Jobs tab.
+      _switchToJobsTab();
+    }
+  }
+
+  /// Switch the bottom nav to the Jobs tab.
+  void _switchToJobsTab() {
     if (Get.isRegistered<NavigationController>()) {
       final nav = Get.find<NavigationController>();
       final idx = nav.titles.indexOf('Jobs');
       if (idx >= 0) nav.changeTab(idx);
     }
-    if (Get.isRegistered<JobsController>()) {
-      Get.find<JobsController>().refresh();
+  }
+
+  /// Find the job in the already-loaded lists and navigate to JobDetailsPage.
+  /// If the job isn't found locally, switch to Jobs tab as a fallback.
+  void _navigateToJobDetails(int jobId) {
+    if (!Get.isRegistered<JobsController>()) {
+      _switchToJobsTab();
+      return;
     }
+
+    final controller = Get.find<JobsController>();
+
+    // Search ongoing jobs first (most relevant for drivers).
+    final ongoingData = controller.ongoingJobsResponse.value?.data;
+    if (ongoingData != null) {
+      for (final job in ongoingData) {
+        if (job.jobId == jobId) {
+          Get.to(() => JobDetailsPage(job: job, isOngoing: true));
+          return;
+        }
+      }
+    }
+
+    // Search all available jobs.
+    final allData = controller.allJobsResponse.value?.data;
+    if (allData != null) {
+      for (final job in allData) {
+        if (job.jobId == jobId) {
+          Get.to(() => JobDetailsPage(job: job));
+          return;
+        }
+      }
+    }
+
+    // Job not found in local data — switch to Jobs tab (the refresh above
+    // will load the latest data so the user can find it).
+    _switchToJobsTab();
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    _navigateToJobs();
+    String? jobId;
+    String? type;
+    if (response.payload != null && response.payload!.isNotEmpty) {
+      try {
+        final data = jsonDecode(response.payload!) as Map<String, dynamic>;
+        jobId = data['job_id']?.toString();
+        type = data['type']?.toString();
+      } catch (_) {}
+    }
+    _handleNotificationNavigation(jobId: jobId, type: type);
   }
 
   Future<void> _sendTokenToBackend(String token) async {
