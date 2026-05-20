@@ -5,6 +5,54 @@ class GeoPoint {
   const GeoPoint(this.lat, this.lng);
 }
 
+/// An axis-aligned latitude/longitude rectangle. Used to frame a set of points
+/// (e.g. rider + job) inside the map's visible area instead of relying on a
+/// hand-tuned center/zoom pair.
+class GeoBounds {
+  const GeoBounds({required this.southWest, required this.northEast});
+
+  final GeoPoint southWest;
+  final GeoPoint northEast;
+
+  /// Tightest box containing every point in [points], which must be non-empty.
+  factory GeoBounds.fromPoints(Iterable<GeoPoint> points) {
+    final iter = points.iterator;
+    if (!iter.moveNext()) {
+      throw ArgumentError('GeoBounds.fromPoints requires at least one point');
+    }
+    var minLat = iter.current.lat, maxLat = iter.current.lat;
+    var minLng = iter.current.lng, maxLng = iter.current.lng;
+    while (iter.moveNext()) {
+      final p = iter.current;
+      if (p.lat < minLat) minLat = p.lat;
+      if (p.lat > maxLat) maxLat = p.lat;
+      if (p.lng < minLng) minLng = p.lng;
+      if (p.lng > maxLng) maxLng = p.lng;
+    }
+    return GeoBounds(
+      southWest: GeoPoint(minLat, minLng),
+      northEast: GeoPoint(maxLat, maxLng),
+    );
+  }
+
+  /// True when the box has collapsed to a single point — fitting a camera to
+  /// it is meaningless, so callers should fall back to a fixed zoom.
+  bool get isPoint =>
+      southWest.lat == northEast.lat && southWest.lng == northEast.lng;
+
+  @override
+  bool operator ==(Object other) =>
+      other is GeoBounds &&
+      other.southWest.lat == southWest.lat &&
+      other.southWest.lng == southWest.lng &&
+      other.northEast.lat == northEast.lat &&
+      other.northEast.lng == northEast.lng;
+
+  @override
+  int get hashCode =>
+      Object.hash(southWest.lat, southWest.lng, northEast.lat, northEast.lng);
+}
+
 /// Visual variant for a marker. Job stops get the default pin; the rider's
 /// own position gets a distinct dot so the two are never confused on map.
 enum MapMarkerKind { job, rider }
@@ -19,6 +67,9 @@ class MapMarkerModel {
   final Object? data;
   final double?
   rotation; // Rotation angle in degrees (0-360), based on compass direction
+
+  /// Short text drawn on the marker itself — e.g. a job's stop number.
+  final String? label;
   final MapMarkerKind kind;
   const MapMarkerModel({
     required this.id,
@@ -28,6 +79,7 @@ class MapMarkerModel {
     this.subtitle,
     this.data,
     this.rotation,
+    this.label,
     this.kind = MapMarkerKind.job,
   });
 }

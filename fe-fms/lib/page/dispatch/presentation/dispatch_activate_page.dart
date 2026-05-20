@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
+import '../../../core/theme/dispatch_palette.dart';
 import '../../../main.dart' show RootGate;
 import '../controller/dispatch_auth_controller.dart';
+import '../widget/dispatch_auth_widgets.dart';
 
-/// First-time activation: phone + 6-digit code from admin + chosen password.
+/// First-time activation: phone + 8-character code from the dispatcher +
+/// chosen password.
 class DispatchActivatePage extends StatefulWidget {
   const DispatchActivatePage({super.key});
 
@@ -50,9 +53,6 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
         newPassword: _passwordCtrl.text,
         deviceName: deviceName,
       );
-      // Replace the navigator stack with a fresh RootGate so the post-auth
-      // state is read cleanly (instead of relying on the under-the-hood
-      // Obx swap of the original RootGate to settle in time).
       if (mounted) {
         Get.offAll(() => const RootGate());
       }
@@ -67,114 +67,121 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.dispatch;
     return Scaffold(
-      appBar: AppBar(title: const Text('Activate account')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Enter the 8-character code your dispatcher provided, '
-                  'along with your phone number, to set a password '
-                  'and finish activation.',
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone',
-                    hintText: '09XX… or +639XX…',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _codeCtrl,
-                  keyboardType: TextInputType.visiblePassword,
-                  textCapitalization: TextCapitalization.characters,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  inputFormatters: [
-                    // Backend alphabet excludes 0/1/I/O to avoid lookalikes.
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[A-HJ-NP-Za-hj-np-z2-9]'),
-                    ),
-                    _UpperCaseTextFormatter(),
-                    LengthLimitingTextInputFormatter(8),
-                  ],
-                  decoration: const InputDecoration(
-                    labelText: '8-character code',
-                    hintText: 'e.g. K7M2QXR4',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => (v == null || v.trim().length != 8)
-                      ? 'Enter the 8-character code'
-                      : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordCtrl,
-                  obscureText: _obscure,
-                  decoration: InputDecoration(
-                    labelText: 'New password',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscure ? Icons.visibility : Icons.visibility_off,
-                      ),
-                      onPressed: () => setState(() => _obscure = !_obscure),
-                    ),
-                  ),
-                  validator: (v) => (v == null || v.length < 8)
-                      ? 'At least 8 characters'
-                      : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _confirmCtrl,
-                  obscureText: _obscure,
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm password',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => v != _passwordCtrl.text
-                      ? 'Passwords do not match'
-                      : null,
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Activate'),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'If activation keeps failing, contact your dispatcher.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+      backgroundColor: palette.pageSurface,
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DispatchBrandHeader(
+              icon: Icons.vpn_key_outlined,
+              title: 'Activate account',
+              subtitle: 'Set up your driver sign-in',
+              onBack: () => Get.back(),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Enter the 8-character code your dispatcher provided, '
+                      'along with your phone number, to set a password and '
+                      'finish activation.',
+                      style: TextStyle(
+                        color: palette.subtle,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    DispatchTextField(
+                      controller: _phoneCtrl,
+                      label: 'Phone',
+                      hint: '09XX… or +639XX…',
+                      keyboardType: TextInputType.phone,
+                      prefixIcon: Icons.phone_outlined,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Phone is required'
+                          : null,
+                    ),
+                    const SizedBox(height: 18),
+                    DispatchTextField(
+                      controller: _codeCtrl,
+                      label: '8-character code',
+                      hint: 'e.g. K7M2QXR4',
+                      keyboardType: TextInputType.visiblePassword,
+                      textCapitalization: TextCapitalization.characters,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      prefixIcon: Icons.confirmation_number_outlined,
+                      inputFormatters: [
+                        // Backend alphabet excludes 0/1/I/O to avoid
+                        // lookalikes.
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[A-HJ-NP-Za-hj-np-z2-9]'),
+                        ),
+                        _UpperCaseTextFormatter(),
+                        LengthLimitingTextInputFormatter(8),
+                      ],
+                      validator: (v) => (v == null || v.trim().length != 8)
+                          ? 'Enter the 8-character code'
+                          : null,
+                    ),
+                    const SizedBox(height: 18),
+                    DispatchTextField(
+                      controller: _passwordCtrl,
+                      label: 'New password',
+                      obscureText: _obscure,
+                      prefixIcon: Icons.lock_outline,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          color: palette.subtle,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscure = !_obscure),
+                      ),
+                      validator: (v) => (v == null || v.length < 8)
+                          ? 'At least 8 characters'
+                          : null,
+                    ),
+                    const SizedBox(height: 18),
+                    DispatchTextField(
+                      controller: _confirmCtrl,
+                      label: 'Confirm password',
+                      obscureText: _obscure,
+                      prefixIcon: Icons.lock_outline,
+                      validator: (v) => v != _passwordCtrl.text
+                          ? 'Passwords do not match'
+                          : null,
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 16),
+                      DispatchErrorText(_error!),
+                    ],
+                    const SizedBox(height: 24),
+                    DispatchPrimaryButton(
+                      label: 'Activate',
+                      loading: _submitting,
+                      onPressed: _submit,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'If activation keeps failing, contact your dispatcher.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: palette.subtle),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

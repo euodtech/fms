@@ -4,12 +4,13 @@
 /// API uses a different base path, auth scheme, and envelope shape.
 class DispatchConstants {
   /// Base URL for the dispatch API. Override with
-  /// `--dart-define=DISPATCH_BASE_URL=…`. Default targets the Android
-  /// emulator host alias against the local Laravel server on port 8000
-  /// (same host as the legacy `/myapi/*` routes).
+  /// `--dart-define=DISPATCH_BASE_URL=…`. Default points to the local Laravel
+  /// server on the dev machine's LAN IP (port 8000) — reachable from a
+  /// physical Android device on the same Wi-Fi, same host as the legacy
+  /// `/myapi/*` routes. For the Android emulator, override with 10.0.2.2.
   static const String baseUrl = String.fromEnvironment(
     'DISPATCH_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000/api/dispatch',
+    defaultValue: 'http://172.31.55.206:8000/api/dispatch',
   );
 
   // Auth
@@ -52,4 +53,8 @@ class DispatchConstants {
   static const int maxPhotos = 5;
   static const int maxPhotoBytes = 4 * 1024 * 1024;
   static const int maxNotesLength = 2000;
+
+  /// Minimum proof-of-work photos a rider must attach before they can finish a
+  /// job. Enforced client-side in the finish page.
+  static const int minPhotos = 2;
 }

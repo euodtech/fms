@@ -59,6 +59,16 @@ class DispatchApiClient {
 
   final http.Client _http;
 
+  /// Hard ceiling on a plain request. Without this, a request to an
+  /// unreachable host hangs on the OS-level TCP connect timeout (1-2+ min on
+  /// Android) — the UI just shows a spinner "stuck" the whole time. 15s is
+  /// long enough for a slow mobile round trip, short enough to fail fast.
+  static const Duration _timeout = Duration(seconds: 15);
+
+  /// Longer ceiling for multipart uploads — photos legitimately take a while
+  /// on a slow connection, so don't abort them as aggressively.
+  static const Duration _uploadTimeout = Duration(seconds: 60);
+
   Future<String?> _readToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(DispatchConstants.prefToken);
@@ -90,15 +100,23 @@ class DispatchApiClient {
     bool requireAuth = true,
   }) async {
     try {
-      final res = await _http.get(
-        Uri.parse(url),
-        headers: await _headers(requireAuth: requireAuth),
-      );
+      final res = await _http
+          .get(
+            Uri.parse(url),
+            headers: await _headers(requireAuth: requireAuth),
+          )
+          .timeout(_timeout);
       return _parseJson(res);
+    } on TimeoutException {
+      throw DispatchApiException(
+        statusCode: 0,
+        message: 'The server took too long to respond. Please try again.',
+      );
     } on SocketException {
       throw DispatchApiException(
         statusCode: 0,
-        message: 'No internet connection. Please try again.',
+        message: "Couldn't reach the server. "
+            'Check your connection and try again.',
       );
     }
   }
@@ -110,19 +128,27 @@ class DispatchApiClient {
     String? idempotencyKey,
   }) async {
     try {
-      final res = await _http.post(
-        Uri.parse(url),
-        headers: await _headers(
-          requireAuth: requireAuth,
-          idempotencyKey: idempotencyKey,
-        ),
-        body: jsonEncode(body ?? const <String, dynamic>{}),
-      );
+      final res = await _http
+          .post(
+            Uri.parse(url),
+            headers: await _headers(
+              requireAuth: requireAuth,
+              idempotencyKey: idempotencyKey,
+            ),
+            body: jsonEncode(body ?? const <String, dynamic>{}),
+          )
+          .timeout(_timeout);
       return _parseJson(res);
+    } on TimeoutException {
+      throw DispatchApiException(
+        statusCode: 0,
+        message: 'The server took too long to respond. Please try again.',
+      );
     } on SocketException {
       throw DispatchApiException(
         statusCode: 0,
-        message: 'No internet connection. Please try again.',
+        message: "Couldn't reach the server. "
+            'Check your connection and try again.',
       );
     }
   }
@@ -146,13 +172,20 @@ class DispatchApiClient {
           await http.MultipartFile.fromPath(entry.key, entry.value.path),
         );
       }
-      final streamed = await _http.send(req);
-      final res = await http.Response.fromStream(streamed);
+      final streamed = await _http.send(req).timeout(_uploadTimeout);
+      final res =
+          await http.Response.fromStream(streamed).timeout(_uploadTimeout);
       return _parseJson(res);
+    } on TimeoutException {
+      throw DispatchApiException(
+        statusCode: 0,
+        message: 'The upload took too long. Please try again.',
+      );
     } on SocketException {
       throw DispatchApiException(
         statusCode: 0,
-        message: 'No internet connection. Please try again.',
+        message: "Couldn't reach the server. "
+            'Check your connection and try again.',
       );
     }
   }
