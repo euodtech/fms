@@ -86,19 +86,14 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   /// enough that 24h of idle polling costs ~2.8k requests/device.
   static const Duration _pollInterval = Duration(seconds: 30);
 
-  /// Silent GPS poll cadence — keeps [riderPos] and the OSRM origin in sync
-  /// with real movement. OSRM + ETA fetches are memoised at 4-dp (~11m) so
-  /// this rate doesn't translate into network traffic 1:1.
-  static const Duration _riderTrackInterval = Duration(seconds: 10);
-
   /// Total duration of the polyline "draw-on" reveal animation.
   static const Duration _routeAnimDuration = Duration(milliseconds: 800);
   static const Duration _routeAnimTick = Duration(milliseconds: 16);
 
   Timer? _pollTimer;
-  Timer? _riderTrackTimer;
   Timer? _routeAnimTimer;
   Stopwatch? _routeAnimClock;
+  StreamSubscription<Position>? _riderPositionSub;
   bool _isForeground = true;
 
   int _routeRequestSeq = 0;
@@ -190,17 +185,66 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
 
   // ---- Rider tracking -------------------------------------------------------
 
+  /// Subscribes to OS-emitted position updates and pushes each one into
+  /// [riderPos]. Replaces the previous `Timer.periodic` poll so the on-map
+  /// marker moves the instant the OS produces a fix — matching the feel of
+  /// Google Maps' live-cursor rather than a 10-second sampled trail.
+  ///
+  /// When [DispatchConstants.devPosition] is set we skip the subscription
+  /// entirely — the dev coord is fixed, no point listening to a stream that
+  /// will never overrule it. The one-shot [refreshRiderPosition] in onInit
+  /// has already seeded `riderPos` with the dev coord.
+  ///
+  /// On Android we force `LocationManager` (bypassing FusedLocationProvider)
+  /// for the same reason the position service does: emulator pin drops feed
+  /// LocationManager directly, while FLP caches and serves stale fixes.
+  /// `distanceFilter: 0` means we get every emission rather than only after
+  /// the device has moved N metres — the 4-dp OSRM/ETA memo keys still
+  /// suppress redundant network traffic.
   void _startRiderTracking() {
-    _riderTrackTimer?.cancel();
-    _riderTrackTimer = Timer.periodic(_riderTrackInterval, (_) {
-      if (!_isForeground) return;
-      refreshRiderPosition(force: true, silent: true);
-    });
+    if (DispatchConstants.devPosition != null) return;
+    if (_riderPositionSub != null) return;
+    final LocationSettings settings = Platform.isAndroid
+        ? AndroidSettings(
+            forceLocationManager: true,
+            accuracy: LocationAccuracy.medium,
+            distanceFilter: 0,
+          )
+        : const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            distanceFilter: 0,
+          );
+    _riderPositionSub = Geolocator.getPositionStream(
+      locationSettings: settings,
+    ).listen(
+      _onRiderPositionEmission,
+      onError: (Object e, StackTrace st) {
+        log(
+          'rider position stream error: $e',
+          name: 'DispatchJobsController',
+          error: e,
+          stackTrace: st,
+        );
+      },
+      cancelOnError: false,
+    );
   }
 
   void _stopRiderTracking() {
-    _riderTrackTimer?.cancel();
-    _riderTrackTimer = null;
+    _riderPositionSub?.cancel();
+    _riderPositionSub = null;
+  }
+
+  /// Stream callback. Mirrors what [refreshRiderPosition]'s final assignment
+  /// did, but pushed instead of pulled. Both OSRM (route to the on-the-way
+  /// target) and ETA (closest-pickup distance for the overview card) are
+  /// memoised at 4-dp (~11 m) so we can fire them on every emission cheaply.
+  void _onRiderPositionEmission(Position p) {
+    riderPos.value = GeoPoint(p.latitude, p.longitude);
+    unawaited(_maybeFetchRoute());
+    if (selectedJobId.value == null) {
+      unawaited(_maybeFetchEta());
+    }
   }
 
   /// One-shot rider fix. Deliberately *not* a position-stream subscription —
@@ -218,30 +262,48 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   }) async {
     if (locating.value && !silent) return;
     if (!force && riderPos.value != null) return;
+
+    final dev = DispatchConstants.devPosition;
+    if (dev != null) {
+      riderPos.value = GeoPoint(dev.lat, dev.lng);
+      unawaited(_maybeFetchRoute());
+      if (selectedJobId.value == null) {
+        unawaited(_maybeFetchEta());
+      }
+      return;
+    }
+
     if (!silent) locating.value = true;
     try {
-      if (riderPos.value == null) {
-        final last = await Geolocator.getLastKnownPosition();
-        if (last != null) {
-          riderPos.value = GeoPoint(last.latitude, last.longitude);
-          // Don't wait for the fresh-fix — kick OSRM + ETA off the last-known
-          // position so the polyline can render in ~one network round trip
-          // instead of (GPS_timeout + network).
-          unawaited(_maybeFetchRoute());
-          if (selectedJobId.value == null) {
-            unawaited(_maybeFetchEta());
-          }
-        }
+      // Prefer last-known every tick. On Android the OS records the new
+      // sample the moment the provider emits — and the emulator's Extended-
+      // controls pin drop bumps last-known immediately. getCurrentPosition
+      // can hang waiting for the *next* emission, which on a static fix
+      // never arrives. Only fall through to a fresh fix when last-known is
+      // genuinely empty (cold boot before any provider has fired).
+      Position? position = await Geolocator.getLastKnownPosition();
+      if (position == null) {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: Platform.isAndroid
+              ? AndroidSettings(
+                  forceLocationManager: true,
+                  accuracy: LocationAccuracy.medium,
+                  timeLimit: const Duration(seconds: 6),
+                )
+              : const LocationSettings(
+                  accuracy: LocationAccuracy.medium,
+                  timeLimit: Duration(seconds: 6),
+                ),
+        );
       }
-      final fresh = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 6),
-        ),
+      riderPos.value = GeoPoint(position.latitude, position.longitude);
+    } catch (e, st) {
+      log(
+        'refreshRiderPosition: $e',
+        name: 'DispatchJobsController',
+        error: e,
+        stackTrace: st,
       );
-      riderPos.value = GeoPoint(fresh.latitude, fresh.longitude);
-    } catch (_) {
-      // Permission / timeout — leave whatever we already had.
     } finally {
       if (!silent) locating.value = false;
     }
