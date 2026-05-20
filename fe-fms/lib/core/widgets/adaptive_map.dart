@@ -16,6 +16,20 @@ class AdaptiveMap extends StatelessWidget {
   /// even when those values are unchanged from the previous build (e.g. the
   /// user pinched to zoom out, then tapped "center on me" again).
   final int recenterTick;
+
+  /// When non-null the camera frames this box (instead of [center]/[zoom]),
+  /// keeping the whole route in view.
+  final GeoBounds? fitBounds;
+
+  /// Logical pixels obscured at the bottom of the map by an overlapping panel
+  /// (the job bottom sheet). The camera treats only the area *above* this
+  /// inset as usable space, so framed content is never hidden behind it.
+  final double bottomInset;
+
+  /// Logical pixels at the top kept clear of framed content — the status bar /
+  /// notch / Dynamic Island region of a full-bleed map.
+  final double topInset;
+
   const AdaptiveMap({
     super.key,
     required this.center,
@@ -24,6 +38,9 @@ class AdaptiveMap extends StatelessWidget {
     this.zones = const [],
     this.onMarkerTap,
     this.recenterTick = 0,
+    this.fitBounds,
+    this.bottomInset = 0,
+    this.topInset = 0,
   });
 
   @override
@@ -37,6 +54,9 @@ class AdaptiveMap extends StatelessWidget {
         zones: zones,
         onMarkerTap: onMarkerTap,
         recenterTick: recenterTick,
+        fitBounds: fitBounds,
+        bottomInset: bottomInset,
+        topInset: topInset,
       );
     } else {
       return FlutterMapWidget(
@@ -46,6 +66,9 @@ class AdaptiveMap extends StatelessWidget {
         zones: zones,
         onMarkerTap: onMarkerTap,
         recenterTick: recenterTick,
+        fitBounds: fitBounds,
+        bottomInset: bottomInset,
+        topInset: topInset,
       );
     }
   }

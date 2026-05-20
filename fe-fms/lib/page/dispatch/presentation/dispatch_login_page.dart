@@ -2,17 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
+import '../../../core/theme/dispatch_palette.dart';
 import '../../../main.dart' show RootGate;
 import '../../auth/presentation/login_chooser_page.dart';
-import '../../auth/widget/auth_button.dart';
-import '../../auth/widget/auth_text_field.dart';
 import '../controller/dispatch_auth_controller.dart';
+import '../widget/dispatch_auth_widgets.dart';
 import 'dispatch_activate_page.dart';
 
-/// Phone + password sign-in for dispatch (four-wheels) riders. Visual
-/// structure mirrors the legacy two-wheels [LoginPage] so the two surfaces
-/// feel like one app — only the header icon differs (car instead of logo)
-/// to make the four-wheels surface immediately distinguishable.
+/// Phone + password sign-in for dispatch (four-wheels) riders.
 class DispatchLoginPage extends StatefulWidget {
   const DispatchLoginPage({super.key});
 
@@ -33,10 +30,6 @@ class _DispatchLoginPageState extends State<DispatchLoginPage> {
     _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
-  }
-
-  void _togglePasswordVisibility() {
-    setState(() => _obscure = !_obscure);
   }
 
   Future<void> _submit() async {
@@ -71,146 +64,90 @@ class _DispatchLoginPageState extends State<DispatchLoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
+    final palette = context.dispatch;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: theme.colorScheme.onSurface,
-        // Always show a back-to-chooser arrow regardless of nav stack state.
-        // On a logout-triggered `Get.offAll(DispatchLoginPage)` this page is
-        // the root, so the default automatically-implied back button is
-        // hidden — that's why we route explicitly via Get.offAll.
-        leading: IconButton(
-          tooltip: 'Back to sign-in chooser',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Get.offAll(() => const LoginChooserPage()),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 85,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Icon(
-                            Icons.directions_car_filled_outlined,
-                            size: 44,
-                            color: theme.colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Welcome',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Sign in as a driver',
-                          style: theme.textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+      backgroundColor: palette.pageSurface,
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DispatchBrandHeader(
+              icon: Icons.directions_car_filled_outlined,
+              title: 'Welcome',
+              subtitle: 'Sign in as a driver',
+              // On a logout-triggered Get.offAll this page is the navigator
+              // root, so route back to the chooser explicitly.
+              onBack: () => Get.offAll(() => const LoginChooserPage()),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DispatchTextField(
+                      controller: _phoneCtrl,
+                      label: 'Phone',
+                      hint: '09XX… or +639XX…',
+                      keyboardType: TextInputType.phone,
+                      prefixIcon: Icons.phone_outlined,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Phone is required'
+                          : null,
                     ),
-                  ),
-
-                  const SizedBox(height: 48),
-
-                  AuthTextField(
-                    label: 'Phone',
-                    hint: '09XX… or +639XX…',
-                    controller: _phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    prefixIcon: Icon(
-                      Icons.phone_outlined,
-                      color: theme.colorScheme.primary,
-                    ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Phone is required' : null,
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  AuthTextField(
-                    label: 'Password',
-                    hint: 'Fill your password',
-                    controller: _passwordCtrl,
-                    obscureText: _obscure,
-                    prefixIcon: Icon(
-                      Icons.lock_outline,
-                      color: theme.colorScheme.primary,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscure
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        color: theme.colorScheme.primary,
+                    const SizedBox(height: 18),
+                    DispatchTextField(
+                      controller: _passwordCtrl,
+                      label: 'Password',
+                      hint: 'Enter your password',
+                      obscureText: _obscure,
+                      prefixIcon: Icons.lock_outline,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          color: palette.subtle,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscure = !_obscure),
                       ),
-                      onPressed: _togglePasswordVisibility,
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Password is required'
+                          : null,
                     ),
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Password is required' : null,
-                  ),
-
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red),
+                    if (_error != null) ...[
+                      const SizedBox(height: 16),
+                      DispatchErrorText(_error!),
+                    ],
+                    const SizedBox(height: 24),
+                    DispatchPrimaryButton(
+                      label: 'Log in',
+                      loading: _submitting,
+                      onPressed: _submit,
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: TextButton(
+                        onPressed: _submitting
+                            ? null
+                            : () =>
+                                Get.to(() => const DispatchActivatePage()),
+                        child: const Text(
+                          'First time? Activate account',
+                          style: TextStyle(
+                            color: DispatchColors.brand,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
-
-                  const SizedBox(height: 24),
-
-                  AuthButton(
-                    text: 'Login',
-                    onPressed: _submit,
-                    isLoading: _submitting,
-                    isOutlined: true,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Activate-account entry point — kept as a soft TextButton
-                  // analogous to "Forgot Password" on the legacy login.
-                  Align(
-                    alignment: Alignment.center,
-                    child: TextButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => Get.to(() => const DispatchActivatePage()),
-                      child: Text(
-                        'First time? Activate account',
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

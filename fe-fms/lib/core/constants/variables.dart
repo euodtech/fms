@@ -13,7 +13,7 @@ class Variables {
   // Production: https://jms.euodoo.com.ph/api/myapi
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'http://10.109.233.206:8000/myapi',
+    defaultValue: 'http://172.31.55.206:8000/myapi',
   );
   // API endpoints helper methods
   static String getProfileEndpoint(String userId) =>

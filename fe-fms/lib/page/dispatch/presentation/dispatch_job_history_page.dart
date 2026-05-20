@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
 import '../../../core/dispatch/dispatch_format.dart';
+import '../../../core/theme/dispatch_palette.dart';
 import '../../../data/dispatch/datasource/dispatch_jobs_datasource.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 
@@ -51,29 +52,46 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.dispatch;
     return Scaffold(
-      appBar: AppBar(title: const Text('Completed jobs')),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _load,
-          child: _buildBody(),
+      backgroundColor: palette.pageSurface,
+      appBar: AppBar(
+        backgroundColor: palette.pageSurface,
+        surfaceTintColor: palette.pageSurface,
+        foregroundColor: palette.ink,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
+        title: const Text(
+          'Completed jobs',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
+      ),
+      body: RefreshIndicator(
+        color: DispatchColors.brand,
+        onRefresh: _load,
+        child: _buildBody(context),
       ),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
+    final palette = context.dispatch;
     if (_loading && _jobs.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: DispatchColors.brand),
+      );
     }
     if (_error != null && _jobs.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 60),
-          const Icon(Icons.cloud_off, size: 56, color: Colors.grey),
+          Icon(Icons.cloud_off, size: 56, color: palette.subtle),
           const SizedBox(height: 12),
-          Center(child: Text(_error!)),
+          Center(
+            child: Text(_error!, style: TextStyle(color: palette.subtle)),
+          ),
           const SizedBox(height: 16),
           Center(
             child: FilledButton.tonal(
@@ -85,112 +103,115 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
       );
     }
     if (_jobs.isEmpty) {
+      // A ListView so pull-to-refresh still works on an empty list.
       return ListView(
         children: [
-          const SizedBox(height: 80),
-          Icon(Icons.history_toggle_off,
-              size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: 100),
+          Icon(Icons.history_toggle_off, size: 64, color: palette.subtle),
           const SizedBox(height: 12),
-          const Center(child: Text('No completed jobs yet.')),
+          Center(
+            child: Text(
+              'No completed jobs yet.',
+              style: TextStyle(color: palette.subtle, fontSize: 15),
+            ),
+          ),
         ],
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.zero,
       itemCount: _jobs.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, i) => _HistoryCard(job: _jobs[i]),
+      separatorBuilder: (_, _) => Divider(
+        height: 1,
+        thickness: 1,
+        color: palette.divider,
+        indent: 20,
+        endIndent: 20,
+      ),
+      itemBuilder: (context, i) => _HistoryRow(job: _jobs[i]),
     );
   }
 }
 
-class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.job});
+/// A completed-job row — flat and divider-separated, mirroring the overview
+/// page's `_OverviewJobRow`. Every history entry is a finished job, so the
+/// accent bar is always the brand green.
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({required this.job});
   final DispatchJob job;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Get.to(() => DispatchJobHistoryDetailPage(jobId: job.id)),
-        child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final palette = context.dispatch;
+    final address = job.address;
+    return InkWell(
+      onTap: () => Get.to(() => DispatchJobHistoryDetailPage(jobId: job.id)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
           children: [
-            Row(
-              children: [
-                const Icon(Icons.verified_outlined,
-                    size: 18, color: Colors.green),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    job.jobName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ),
-              ],
+            Container(
+              width: 4,
+              height: 42,
+              decoration: BoxDecoration(
+                color: DispatchColors.brand,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            if (job.address != null && job.address!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Row(
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.place_outlined, size: 14),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      job.address!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
+                  Row(
+                    children: [
+                      const Text(
+                        'COMPLETED',
+                        style: TextStyle(
+                          color: DispatchColors.brand,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (job.finishWhen != null)
+                        Text(
+                          formatDispatchTimestamp(job.finishWhen),
+                          style: TextStyle(
+                            color: palette.subtle,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    job.customer ?? job.jobName,
+                    style: TextStyle(
+                      color: palette.ink,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
                     ),
                   ),
+                  if (address != null && address.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      address,
+                      style: TextStyle(
+                        color: palette.subtle,
+                        fontSize: 12.5,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
                 ],
               ),
-            ],
-            if (job.finishWhen != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.event_available,
-                      size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Finished: ${formatDispatchTimestamp(job.finishWhen)}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-            if (job.meterNumber != null && job.meterNumber!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.speed, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Meter: ${job.meterNumber}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-            if (job.notes != null && job.notes!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                job.notes!,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
+            ),
           ],
         ),
-      ),
       ),
     );
   }
@@ -243,29 +264,46 @@ class _DispatchJobHistoryDetailPageState
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.dispatch;
     return Scaffold(
-      appBar: AppBar(title: const Text('Job detail')),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _load,
-          child: _buildBody(),
+      backgroundColor: palette.pageSurface,
+      appBar: AppBar(
+        backgroundColor: palette.pageSurface,
+        surfaceTintColor: palette.pageSurface,
+        foregroundColor: palette.ink,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
+        title: const Text(
+          'Job detail',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
+      ),
+      body: RefreshIndicator(
+        color: DispatchColors.brand,
+        onRefresh: _load,
+        child: _buildBody(context),
       ),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
+    final palette = context.dispatch;
     if (_loading && _job == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: DispatchColors.brand),
+      );
     }
     if (_error != null && _job == null) {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 60),
-          const Icon(Icons.cloud_off, size: 56, color: Colors.grey),
+          Icon(Icons.cloud_off, size: 56, color: palette.subtle),
           const SizedBox(height: 12),
-          Center(child: Text(_error!)),
+          Center(
+            child: Text(_error!, style: TextStyle(color: palette.subtle)),
+          ),
           const SizedBox(height: 16),
           Center(
             child: FilledButton.tonal(
@@ -281,104 +319,151 @@ class _DispatchJobHistoryDetailPageState
       return ListView(children: const [SizedBox(height: 80)]);
     }
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
       children: [
-        _HeaderCard(job: job),
-        const SizedBox(height: 12),
-        _StatusTimelineCard(job: job),
+        _DetailHeader(job: job),
+        const SizedBox(height: 22),
+        const _SectionLabel('Details'),
+        _DetailCard(
+          child: Column(
+            children: [
+              _KvRow(label: 'Customer', value: job.customer),
+              _KvRow(label: 'Service type', value: job.serviceType),
+              _KvRow(label: 'Address', value: job.address),
+              _KvRow(
+                label: 'Scheduled',
+                value: formatDispatchTimestamp(
+                    job.scheduledArrival, fallback: ''),
+              ),
+              _KvRow(
+                label: 'Actual arrival',
+                value: formatDispatchTimestamp(
+                    job.actualArrival, fallback: ''),
+              ),
+              _KvRow(
+                label: 'Finished at',
+                value:
+                    formatDispatchTimestamp(job.finishWhen, fallback: ''),
+              ),
+              if (job.meterNumber != null && job.meterNumber!.isNotEmpty)
+                _KvRow(label: 'Meter no.', value: job.meterNumber),
+              if (job.notes != null && job.notes!.isNotEmpty)
+                _KvRow(label: 'Notes', value: job.notes),
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+        const _SectionLabel('Timeline'),
+        _DetailCard(child: _Timeline(job: job)),
         if (job.photos != null && job.photos!.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _PhotosCard(photos: job.photos!),
+          const SizedBox(height: 22),
+          _SectionLabel('Proof of delivery (${job.photos!.length})'),
+          _DetailCard(child: _Photos(photos: job.photos!)),
         ],
-        const SizedBox(height: 24),
       ],
     );
   }
 }
 
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.job});
+class _DetailHeader extends StatelessWidget {
+  const _DetailHeader({required this.job});
   final DispatchJob job;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    job.jobName,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _StatusChip(job: job, scheme: scheme),
-              ],
+    final palette = context.dispatch;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            job.jobName,
+            style: TextStyle(
+              color: palette.ink,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              height: 1.25,
             ),
-            const Divider(height: 24),
-            _KvRow(label: 'Customer', value: job.customer),
-            _KvRow(label: 'Service type', value: job.serviceType),
-            _KvRow(label: 'Address', value: job.address),
-            _KvRow(
-              label: 'Scheduled',
-              value: formatDispatchTimestamp(job.scheduledArrival,
-                  fallback: ''),
-            ),
-            _KvRow(
-              label: 'Actual arrival',
-              value: formatDispatchTimestamp(job.actualArrival,
-                  fallback: ''),
-            ),
-            _KvRow(
-              label: 'Finished at',
-              value:
-                  formatDispatchTimestamp(job.finishWhen, fallback: ''),
-            ),
-            if (job.meterNumber != null && job.meterNumber!.isNotEmpty)
-              _KvRow(label: 'Meter no.', value: job.meterNumber),
-            if (job.notes != null && job.notes!.isNotEmpty)
-              _KvRow(label: 'Notes', value: job.notes),
-          ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        _StatusPill(job: job),
+      ],
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.job});
+  final DispatchJob job;
+
+  @override
+  Widget build(BuildContext context) {
+    final (String label, Color color) = job.isFinished
+        ? ('Finished', DispatchColors.brand)
+        : job.isOnTheWay
+            ? ('On the way', const Color(0xFFb45309))
+            : job.isReschedulePending
+                ? ('Reschedule', const Color(0xFFb45309))
+                : ('Assigned', context.dispatch.subtle);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.job, required this.scheme});
-  final DispatchJob job;
-  final ColorScheme scheme;
+/// Small all-caps section heading.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = _resolve(scheme);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          color: context.dispatch.subtle,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.6,
+        ),
       ),
-      child: Text(label, style: TextStyle(color: color, fontSize: 12)),
     );
   }
+}
 
-  (String, Color) _resolve(ColorScheme scheme) {
-    if (job.isFinished) return ('Finished', Colors.green);
-    if (job.isOnTheWay) return ('On the way', scheme.primary);
-    if (job.isReschedulePending) {
-      return ('Reschedule pending', Colors.orange);
-    }
-    return ('Assigned', scheme.primary);
+/// A bordered, theme-aware content card.
+class _DetailCard extends StatelessWidget {
+  const _DetailCard({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.dispatch;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.cardBorder),
+      ),
+      child: child,
+    );
   }
 }
 
@@ -389,114 +474,114 @@ class _KvRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.dispatch;
     final shown = (value == null || value!.isEmpty) ? '—' : value!;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 108,
             child: Text(
               label,
-              style: TextStyle(color: Colors.grey.shade700),
+              style: TextStyle(color: palette.subtle, fontSize: 13),
             ),
           ),
-          Expanded(child: Text(shown)),
+          Expanded(
+            child: Text(
+              shown,
+              style: TextStyle(color: palette.ink, fontSize: 13.5),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _StatusTimelineCard extends StatelessWidget {
-  const _StatusTimelineCard({required this.job});
+class _Timeline extends StatelessWidget {
+  const _Timeline({required this.job});
   final DispatchJob job;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.dispatch;
     final entries = <(String, String?)>[
       ('Created', job.createdAt),
       ('Arrived', job.actualArrival),
       ('Finished', job.finishWhen),
     ].where((e) => e.$2 != null && e.$2!.isNotEmpty).toList();
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Status timeline',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            if (entries.isEmpty)
-              const Text('No timeline data available.',
-                  style: TextStyle(color: Colors.grey))
-            else
-              for (final (label, ts) in entries)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
+    if (entries.isEmpty) {
+      return Text(
+        'No timeline data available.',
+        style: TextStyle(color: palette.subtle, fontSize: 13),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < entries.length; i++)
+          Padding(
+            padding:
+                EdgeInsets.only(bottom: i == entries.length - 1 ? 0 : 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 3),
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: DispatchColors.brand,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Colors.cyan,
-                          shape: BoxShape.circle,
+                      Text(
+                        entries[i].$1,
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(label,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w500)),
-                            Text(formatDispatchTimestamp(ts),
-                                style:
-                                    const TextStyle(color: Colors.grey)),
-                          ],
+                      const SizedBox(height: 2),
+                      Text(
+                        formatDispatchTimestamp(entries[i].$2),
+                        style: TextStyle(
+                          color: palette.subtle,
+                          fontSize: 12.5,
                         ),
                       ),
                     ],
                   ),
                 ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _PhotosCard extends StatelessWidget {
-  const _PhotosCard({required this.photos});
+class _Photos extends StatelessWidget {
+  const _Photos({required this.photos});
   final List<DispatchJobPhoto> photos;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Proof of delivery photos (${photos.length})',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            for (var i = 0; i < photos.length; i++) ...[
-              if (i > 0) const SizedBox(height: 12),
-              _PhotoTile(photo: photos[i]),
-            ],
-          ],
-        ),
-      ),
+    return Column(
+      children: [
+        for (var i = 0; i < photos.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          _PhotoTile(photo: photos[i]),
+        ],
+      ],
     );
   }
 }
@@ -507,38 +592,40 @@ class _PhotoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.dispatch;
     final url = photo.url;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: AspectRatio(
         aspectRatio: 16 / 10,
         child: url != null && url.isNotEmpty
             ? Image.network(
                 url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _photoPlaceholder(photo.filename),
+                errorBuilder: (_, _, _) =>
+                    _placeholder(palette, photo.filename),
               )
-            : _photoPlaceholder(photo.filename),
+            : _placeholder(palette, photo.filename),
       ),
     );
   }
 
-  Widget _photoPlaceholder(String filename) {
+  Widget _placeholder(DispatchPalette palette, String filename) {
     return Container(
-      color: Colors.grey.shade200,
+      color: palette.cardBorder,
       alignment: Alignment.center,
       padding: const EdgeInsets.all(12),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.image_outlined, size: 36, color: Colors.grey),
+          Icon(Icons.image_outlined, size: 36, color: palette.subtle),
           const SizedBox(height: 6),
           Text(
             filename.isEmpty ? '(no filename)' : filename,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12, color: palette.subtle),
           ),
         ],
       ),

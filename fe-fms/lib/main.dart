@@ -5,6 +5,7 @@ import 'package:fms/core/database/offline_database.dart';
 import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/services/sync_service.dart';
 import 'package:fms/core/theme/app_theme.dart';
+import 'package:fms/core/theme/theme_controller.dart';
 import 'package:fms/page/auth/presentation/login_chooser_page.dart';
 import 'package:fms/nav_bar.dart';
 import 'package:fms/page/auth/controller/auth_controller.dart';
@@ -12,6 +13,7 @@ import 'package:fms/page/dispatch/controller/dispatch_auth_controller.dart';
 import 'package:fms/page/dispatch/presentation/dispatch_disabled_page.dart';
 import 'package:fms/page/dispatch/presentation/dispatch_jobs_page.dart';
 import 'package:fms/page/dispatch/service/dispatch_fcm_service.dart';
+import 'package:fms/page/dispatch/service/dispatch_notice_service.dart';
 import 'package:fms/page/dispatch/service/dispatch_position_service.dart';
 import 'package:fms/page/dispatch/service/dispatch_sync_service.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -60,6 +62,15 @@ void main() async {
     permanent: true,
   );
 
+  // Theme — restore the persisted (or system-default) mode before the first
+  // frame so the app never flashes the wrong theme on launch.
+  final themeController = ThemeController();
+  await themeController.load();
+  Get.put<ThemeController>(themeController, permanent: true);
+
+  // App-wide transient-notice banner controller (dispatch surface).
+  Get.put<DispatchNoticeController>(DispatchNoticeController(), permanent: true);
+
   runApp(const MyApp());
 }
 
@@ -72,6 +83,13 @@ class MyApp extends StatelessWidget {
       title: 'E-FMS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      // Initial mode; runtime switches go through Get.changeThemeMode in
+      // ThemeController. Defaults to following the system setting.
+      themeMode: Get.find<ThemeController>().themeMode.value,
+      // Floats the dispatch notice banner above every screen.
+      builder: (context, child) =>
+          DispatchNoticeHost(child: child ?? const SizedBox.shrink()),
       home: const RootGate(),
     );
   }

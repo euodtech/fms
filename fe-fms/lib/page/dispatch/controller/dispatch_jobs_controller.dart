@@ -55,6 +55,12 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   final Rxn<GeoPoint> riderPos = Rxn<GeoPoint>();
   final RxBool locating = false.obs;
 
+  /// Live compass heading of the rider in degrees clockwise from north, used
+  /// to orient the driver marker on the map. `null` until a usable GPS bearing
+  /// arrives. GPS bearing is only meaningful while moving, so this is held
+  /// across stationary fixes rather than snapped back to an arbitrary value.
+  final RxnDouble riderHeading = RxnDouble();
+
   /// When true, the map center continuously tracks the live [riderPos] (the
   /// "center on me" follow mode). Cleared on selection changes.
   final RxBool followRider = false.obs;
@@ -78,6 +84,19 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   /// "drawing" from rider towards the job once OSRM data arrives.
   final RxInt routeRevealCount = 0.obs;
 
+  /// When true, the map shows every unfinished job pin framed together with a
+  /// single multi-stop polyline threading them in route order — a quick
+  /// "here's the whole day" preview. A plain UI toggle, not persisted.
+  final RxBool routePreview = false.obs;
+
+  /// Multi-stop polyline for [routePreview], threading all job stops in route
+  /// order. `null` while the preview is off or its fetch hasn't landed.
+  final Rxn<List<GeoPoint>> previewRoutePoints = Rxn<List<GeoPoint>>();
+
+  /// Number of [previewRoutePoints] currently revealed — animates the preview
+  /// line "drawing" from the first stop through to the last.
+  final RxInt previewRevealCount = 0.obs;
+
   static const String _startAction = 'start';
   static const String _finishAction = 'finish';
 
@@ -95,17 +114,32 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   static const Duration _routeAnimDuration = Duration(milliseconds: 800);
   static const Duration _routeAnimTick = Duration(milliseconds: 16);
 
+  /// Longer reveal for the all-jobs preview — it spans the whole day's route,
+  /// so it draws stop-by-stop over a more deliberate beat.
+  static const Duration _previewAnimDuration = Duration(milliseconds: 1700);
+
   Timer? _pollTimer;
   Timer? _riderTrackTimer;
   Timer? _routeAnimTimer;
   Stopwatch? _routeAnimClock;
+  Timer? _previewAnimTimer;
+  Stopwatch? _previewAnimClock;
   bool _isForeground = true;
 
   int _routeRequestSeq = 0;
   int _etaRequestSeq = 0;
+  int _previewRequestSeq = 0;
   String? _lastRouteKey;
   int? _lastRouteTargetId;
   String? _lastEtaKey;
+
+  /// Signature of the stops currently used by the all-jobs preview line. Re-
+  /// fetching OSRM is skipped when the new jobs list produces the same
+  /// signature — only a job added / removed / finished / re-ordered should
+  /// redraw the preview (per user feedback). Without this, every periodic
+  /// `/jobs/today` refresh re-fetched and re-assigned the polyline, briefly
+  /// blanking the line on screen.
+  String? _lastPreviewKey;
 
   Worker? _jobsWorker;
 
@@ -132,6 +166,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     _stopPolling();
     _stopRiderTracking();
     _stopRouteAnim();
+    _stopPreviewAnim();
     _jobsWorker?.dispose();
     super.onClose();
   }
@@ -156,12 +191,18 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   /// coordinates (caller should surface a notice).
   bool selectJob(DispatchJob job) {
     if (job.lat == null || job.lng == null) return false;
+    // Focusing a single job exits the all-jobs route preview.
+    if (routePreview.value) {
+      routePreview.value = false;
+      _clearPreview();
+    }
     selectedJobId.value = job.id;
+    debugPrint('[sel] selectJob(${job.id})');
     // Don't blank the polyline — keep the old one visible until the new fetch
-    // lands so the user never sees a flash of routeless map. The animate-vs-
-    // snap decision in [_maybeFetchRoute] uses target-id, not nullness.
+    // lands so the user never sees a flash of routeless map. Likewise keep the
+    // last ETA distance on the card; nulling it here is what made the distance
+    // flicker. _maybeFetchRoute overwrites it with the new target's distance.
     _lastEtaKey = null;
-    etaMeters.value = null;
     followRider.value = false;
     fetchDetail(job.id);
     refreshRiderPosition().then((_) => _maybeFetchRoute());
@@ -169,9 +210,9 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   }
 
   void clearSelection() {
+    debugPrint('[sel] clearSelection() called');
     selectedJobId.value = null;
     _lastEtaKey = null;
-    etaMeters.value = null;
     followRider.value = false;
     // Returning to overview — recompute ETA + route. The existing polyline
     // stays visible until the new one lands; _maybeFetchRoute will animate
@@ -180,12 +221,136 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     unawaited(_maybeFetchRoute());
   }
 
-  /// Pins the camera onto the rider and keeps it there as the silent GPS poll
-  /// updates [riderPos]. Cleared next time the user picks a job.
+  /// Recenters the map. With a job focused this re-frames the rider→job route
+  /// (the user may have panned the map away); in the overview it pins the
+  /// camera onto the rider and follows it as the silent GPS poll updates
+  /// [riderPos].
   Future<void> recenterOnRider() async {
-    followRider.value = true;
+    // Recenter exits route preview either way.
+    if (routePreview.value) {
+      routePreview.value = false;
+      _clearPreview();
+    }
+    // Follow-the-rider only in the overview. With a job focused, leaving
+    // [followRider] false keeps the focused map data's route bounds — and the
+    // bumped [recenterTick] makes the map re-fit them.
+    followRider.value = selectedJobId.value == null;
     recenterTick.value++;
     await refreshRiderPosition(force: true);
+  }
+
+  /// Flips the all-jobs route preview. Turning it on drops any focused
+  /// selection (the preview frames every stop) and fetches the multi-stop
+  /// polyline; turning it off clears that polyline.
+  Future<void> toggleRoutePreview() async {
+    routePreview.value = !routePreview.value;
+    debugPrint('[sel] toggleRoutePreview -> ${routePreview.value}');
+    if (routePreview.value) {
+      selectedJobId.value = null;
+      followRider.value = false;
+      await _fetchPreviewRoute(animate: true);
+    } else {
+      _clearPreview();
+    }
+  }
+
+  /// Fetches a single OSRM route threading every unfinished, geocoded job in
+  /// route order. Leaves [previewRoutePoints] null when there are fewer than
+  /// two routable stops (nothing to connect).
+  Future<void> _fetchPreviewRoute({bool animate = false}) async {
+    final stops = jobs
+        .where((j) => !j.isFinished && j.lat != null && j.lng != null)
+        .toList()
+      ..sort((a, b) => (a.routeOrder ?? 1 << 30)
+          .compareTo(b.routeOrder ?? 1 << 30));
+    if (stops.length < 2) {
+      // A transient "no stops" — typically a refresh tick where coordinates
+      // haven't landed yet — must NOT blank an already-drawn preview line.
+      // Only the explicit toggle-off path (`_clearPreview` called directly
+      // from `toggleRoutePreview`) is allowed to wipe the polyline.
+      debugPrint(
+          '[preview] skip: only ${stops.length} routable stop(s) (keep current)');
+      if (animate && previewRoutePoints.value == null) _clearPreview();
+      return;
+    }
+    // Skip the fetch when the stop set hasn't actually changed — a periodic
+    // `/jobs/today` refresh produces a new list object every tick, but unless
+    // a job was added / finished / re-ordered, the preview line is identical
+    // and reassigning it would visibly flicker the polyline. `animate: true`
+    // overrides this so an explicit user toggle always plays the reveal.
+    final key = stops
+        .map((j) =>
+            '${j.id}:${j.routeOrder ?? -1}:${j.lat}:${j.lng}:${j.status ?? -1}')
+        .join('|');
+    if (!animate && key == _lastPreviewKey && previewRoutePoints.value != null) {
+      debugPrint('[preview] skip: stop set unchanged');
+      return;
+    }
+    _lastPreviewKey = key;
+    final waypoints =
+        stops.map((j) => GeoPoint(j.lat!, j.lng!)).toList();
+    final seq = ++_previewRequestSeq;
+    debugPrint('[preview] fetching OSRM for ${waypoints.length} stops');
+    try {
+      final result = await _osrm.route(waypoints);
+      if (seq != _previewRequestSeq || !routePreview.value) {
+        debugPrint('[preview] stale/cancelled response ignored');
+        return;
+      }
+      final pts = result?.points;
+      if (pts == null || pts.length < 2) {
+        debugPrint('[preview] OSRM returned no usable polyline');
+        _clearPreview();
+        return;
+      }
+      debugPrint('[preview] OK: ${pts.length} pts');
+      previewRoutePoints.value = pts;
+      if (animate) {
+        // Draw the line on — stop by stop, in route order.
+        previewRevealCount.value = 2;
+        _startPreviewAnim(pts.length);
+      } else {
+        // A silent refetch (jobs changed) — snap to the full line.
+        _stopPreviewAnim();
+        previewRevealCount.value = pts.length;
+      }
+    } catch (e) {
+      // Leave the preview line absent — the job pins still frame together.
+      debugPrint('[preview] OSRM fetch FAILED: $e');
+    }
+  }
+
+  /// Clears the all-jobs preview line and its reveal animation.
+  void _clearPreview() {
+    _stopPreviewAnim();
+    previewRevealCount.value = 0;
+    previewRoutePoints.value = null;
+    // Forget the stop signature so the next toggle-on always refetches.
+    _lastPreviewKey = null;
+  }
+
+  /// Reveals [previewRoutePoints] progressively — the line draws itself from
+  /// the first stop through to the last.
+  void _startPreviewAnim(int totalPoints) {
+    _stopPreviewAnim();
+    _previewAnimClock = Stopwatch()..start();
+    _previewAnimTimer = Timer.periodic(_routeAnimTick, (_) {
+      final elapsed = _previewAnimClock?.elapsedMilliseconds ?? 0;
+      final t =
+          (elapsed / _previewAnimDuration.inMilliseconds).clamp(0.0, 1.0);
+      final target = (totalPoints * t).round().clamp(2, totalPoints);
+      if (target != previewRevealCount.value) {
+        previewRevealCount.value = target;
+      }
+      if (t >= 1.0) _stopPreviewAnim();
+    });
+  }
+
+  void _stopPreviewAnim() {
+    _previewAnimTimer?.cancel();
+    _previewAnimTimer = null;
+    _previewAnimClock?.stop();
+    _previewAnimClock = null;
   }
 
   // ---- Rider tracking -------------------------------------------------------
@@ -224,6 +389,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
         final last = await Geolocator.getLastKnownPosition();
         if (last != null) {
           riderPos.value = GeoPoint(last.latitude, last.longitude);
+          _updateHeading(last);
           // Don't wait for the fresh-fix — kick OSRM + ETA off the last-known
           // position so the polyline can render in ~one network round trip
           // instead of (GPS_timeout + network).
@@ -240,6 +406,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
         ),
       );
       riderPos.value = GeoPoint(fresh.latitude, fresh.longitude);
+      _updateHeading(fresh);
     } catch (_) {
       // Permission / timeout — leave whatever we already had.
     } finally {
@@ -254,16 +421,34 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     }
   }
 
+  /// Updates [riderHeading] from a GPS fix. A GPS bearing is only reliable
+  /// while the device is actually moving — below a walking-pace threshold the
+  /// reported bearing is noise, so we keep the last good heading instead of
+  /// letting the marker spin in place.
+  void _updateHeading(Position p) {
+    if (p.speed >= 0.7 && p.heading >= 0 && p.heading <= 360) {
+      riderHeading.value = p.heading;
+    }
+  }
+
   // ---- OSRM ----------------------------------------------------------------
 
   void _onJobsChanged(List<DispatchJob> list) {
-    // Drop selection if the previously-selected job has been finished.
+    // Drop the selection only when the previously-selected job is *present and
+    // finished*. A job momentarily missing from a refreshed list (a transient
+    // API hiccup) must not collapse the focused panel on its own.
     final sid = selectedJobId.value;
-    if (sid != null && !list.any((j) => j.id == sid && !j.isFinished)) {
-      selectedJobId.value = null;
+    if (sid != null) {
+      final sel = list.firstWhereOrNull((j) => j.id == sid);
+      if (sel != null && sel.isFinished) {
+        debugPrint('[sel] cleared: job $sid is finished');
+        selectedJobId.value = null;
+      }
     }
     _maybeFetchEta();
     _maybeFetchRoute();
+    // Keep the all-jobs preview line in sync as jobs are added / finished.
+    if (routePreview.value) _fetchPreviewRoute();
   }
 
   /// The stop the rider is currently heading to: on-the-way job if any
@@ -277,7 +462,10 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
 
   Future<void> _maybeFetchRoute() async {
     final rider = riderPos.value;
-    if (rider == null) return;
+    if (rider == null) {
+      debugPrint('[route] skip: rider position is null');
+      return;
+    }
     // Target = focused job if selected and active, else the on-the-way job so
     // the route stays drawn whenever there's work in progress even with the
     // panel closed.
@@ -288,6 +476,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     }
     job ??= jobs.firstWhereOrNull((j) => j.isOnTheWay);
     if (job == null || job.lat == null || job.lng == null) {
+      debugPrint('[route] skip: no target job (selected=$sid)');
       // No target — clear any stale polyline only in overview (focused mode
       // is awaiting the new target's route and will overwrite shortly).
       if (selectedJobId.value == null) {
@@ -302,38 +491,61 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     final targetId = job.id;
     final key = '${rider.lat.toStringAsFixed(4)},'
         '${rider.lng.toStringAsFixed(4)}->$targetId';
-    if (key == _lastRouteKey) return;
+    if (key == _lastRouteKey) {
+      debugPrint('[route] skip: memo hit ($key)');
+      return;
+    }
     _lastRouteKey = key;
+    debugPrint('[route] fetching OSRM for job $targetId ($key)');
 
     final seq = ++_routeRequestSeq;
     try {
       final result =
           await _osrm.route([rider, GeoPoint(job.lat!, job.lng!)]);
-      if (seq != _routeRequestSeq) return;
+      if (seq != _routeRequestSeq) {
+        debugPrint('[route] stale response ignored');
+        return;
+      }
       final stillCurrent = selectedJobId.value != null
           ? selectedJobId.value == targetId
           : (jobs.firstWhereOrNull((j) => j.isOnTheWay)?.id == targetId);
-      if (!stillCurrent) return;
+      if (!stillCurrent) {
+        debugPrint('[route] target changed mid-flight, ignoring');
+        return;
+      }
       final pts = result?.points;
+      if (pts == null || pts.length < 2) {
+        // Upstream gave us nothing usable. Clear the memo so the next poll
+        // retries instead of leaving the route blank forever for a rider who
+        // hasn't moved — and keep the last good polyline on screen.
+        _lastRouteKey = null;
+        debugPrint('[route] OSRM returned no usable polyline '
+            '(result=${result == null ? 'null' : '${result.points.length} pts'})');
+        return;
+      }
       // Animate-vs-snap rule: animate on *target change* (different job, or
       // first appearance). Snap on rider-drift refetches against the same
       // target, otherwise the line looks like it keeps redrawing itself.
       final targetChanged = _lastRouteTargetId != targetId;
       _lastRouteTargetId = targetId;
       routePoints.value = pts;
-      if (result != null) etaMeters.value = result.distanceMeters;
-      if (pts != null && pts.length >= 2) {
-        if (targetChanged) {
-          routeRevealCount.value = 2;
-          _startRouteAnim(pts.length);
-        } else {
-          _stopRouteAnim();
-          routeRevealCount.value = pts.length;
-        }
+      etaMeters.value = result!.distanceMeters;
+      if (targetChanged) {
+        routeRevealCount.value = 2;
+        _startRouteAnim(pts.length);
+      } else {
+        _stopRouteAnim();
+        routeRevealCount.value = pts.length;
       }
-    } catch (_) {
+      debugPrint('[route] OK: ${pts.length} pts, routePoints set, '
+          'revealCount=${routeRevealCount.value}');
+    } catch (e) {
       if (seq != _routeRequestSeq) return;
-      // Leave routePoints as-is so the user keeps seeing the last good route.
+      // Transient failure (network / rate-limited demo OSRM). Clear the memo
+      // so the next tick retries — otherwise a stationary rider never sees the
+      // route come back. Keep any existing polyline visible meanwhile.
+      _lastRouteKey = null;
+      debugPrint('[route] OSRM fetch FAILED for job $targetId: $e');
     }
   }
 
@@ -343,7 +555,8 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     if (rider == null) return;
     final target = _etaTarget();
     if (target == null || target.lat == null || target.lng == null) {
-      etaMeters.value = null;
+      // Keep the last distance on the card — a momentarily un-geocoded target
+      // (a backend geocoding race) must not blank a perfectly good estimate.
       _lastEtaKey = null;
       return;
     }
@@ -360,9 +573,18 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
       if (seq != _etaRequestSeq) return;
       if (selectedJobId.value != null) return;
       if (_etaTarget()?.id != target.id) return;
-      etaMeters.value = result?.distanceMeters;
+      final meters = result?.distanceMeters;
+      if (meters != null) {
+        etaMeters.value = meters;
+      } else {
+        // OSRM returned nothing usable (rate-limited demo server / no route).
+        // Keep the last good distance on the card and clear the memo so the
+        // next poll retries, rather than blanking the estimate.
+        _lastEtaKey = null;
+      }
     } catch (_) {
-      // Leave previous value in place.
+      // Transient failure — leave the previous value in place and retry.
+      _lastEtaKey = null;
     }
   }
 
