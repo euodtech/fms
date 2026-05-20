@@ -133,6 +133,14 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   int? _lastRouteTargetId;
   String? _lastEtaKey;
 
+  /// Signature of the stops currently used by the all-jobs preview line. Re-
+  /// fetching OSRM is skipped when the new jobs list produces the same
+  /// signature — only a job added / removed / finished / re-ordered should
+  /// redraw the preview (per user feedback). Without this, every periodic
+  /// `/jobs/today` refresh re-fetched and re-assigned the polyline, briefly
+  /// blanking the line on screen.
+  String? _lastPreviewKey;
+
   Worker? _jobsWorker;
 
   @override
@@ -256,10 +264,29 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
       ..sort((a, b) => (a.routeOrder ?? 1 << 30)
           .compareTo(b.routeOrder ?? 1 << 30));
     if (stops.length < 2) {
-      debugPrint('[preview] skip: only ${stops.length} routable stop(s)');
-      _clearPreview();
+      // A transient "no stops" — typically a refresh tick where coordinates
+      // haven't landed yet — must NOT blank an already-drawn preview line.
+      // Only the explicit toggle-off path (`_clearPreview` called directly
+      // from `toggleRoutePreview`) is allowed to wipe the polyline.
+      debugPrint(
+          '[preview] skip: only ${stops.length} routable stop(s) (keep current)');
+      if (animate && previewRoutePoints.value == null) _clearPreview();
       return;
     }
+    // Skip the fetch when the stop set hasn't actually changed — a periodic
+    // `/jobs/today` refresh produces a new list object every tick, but unless
+    // a job was added / finished / re-ordered, the preview line is identical
+    // and reassigning it would visibly flicker the polyline. `animate: true`
+    // overrides this so an explicit user toggle always plays the reveal.
+    final key = stops
+        .map((j) =>
+            '${j.id}:${j.routeOrder ?? -1}:${j.lat}:${j.lng}:${j.status ?? -1}')
+        .join('|');
+    if (!animate && key == _lastPreviewKey && previewRoutePoints.value != null) {
+      debugPrint('[preview] skip: stop set unchanged');
+      return;
+    }
+    _lastPreviewKey = key;
     final waypoints =
         stops.map((j) => GeoPoint(j.lat!, j.lng!)).toList();
     final seq = ++_previewRequestSeq;
@@ -298,6 +325,8 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     _stopPreviewAnim();
     previewRevealCount.value = 0;
     previewRoutePoints.value = null;
+    // Forget the stop signature so the next toggle-on always refetches.
+    _lastPreviewKey = null;
   }
 
   /// Reveals [previewRoutePoints] progressively — the line draws itself from
