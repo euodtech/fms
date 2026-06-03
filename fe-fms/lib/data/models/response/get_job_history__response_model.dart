@@ -140,13 +140,21 @@ class JobDetail {
     'created_at': createdAt?.toIso8601String(),
   };
 
-  /// Returns the full photo URL, handling both relative and absolute paths.
+  /// Returns the full photo URL.
+  ///
+  /// The backend stores [photo] as a private storage path
+  /// (e.g. `storage/app/finished_jobs/job_123_abc.jpg`) which isn't directly
+  /// web-accessible. The `/myapi/finished-job-photo/{filename}` endpoint streams
+  /// it by name, so we send just the basename there. Absolute URLs (older/other
+  /// backends) are passed through unchanged.
   String? get photoUrl {
     if (photo == null || photo!.isEmpty) return null;
     if (photo!.startsWith('http://') || photo!.startsWith('https://')) {
       return photo;
     }
-    return '${Variables.baseUrl}/$photo';
+    final filename = photo!.split('/').last;
+    if (filename.isEmpty) return null;
+    return '${Variables.baseUrl}/finished-job-photo/$filename';
   }
 }
 
